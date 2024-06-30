@@ -26,6 +26,10 @@ struct InitialValueProblem
     domain :: Interval
 end
 
+function discretize(domain :: Interval, discretization :: Int) :: StepRangeLen
+    return range(domain.lb, domain.ub, discretization + 1)
+end
+
 """
     partition(domain :: Interval, discretization :: Int)
 
@@ -48,8 +52,8 @@ function der(t, u)
     return u # this encodes the differential equation du/dt = u
 end
 
-const INITIALVALUE = 1
-const DOMAIN       = Interval(0, 1)
+const INITIALVALUE = 1.0
+const DOMAIN       = Interval(0., 1.)
 
 ivp = InitialValueProblem(der, INITIALVALUE, DOMAIN)
 
@@ -59,7 +63,7 @@ ivp = InitialValueProblem(der, INITIALVALUE, DOMAIN)
 # first we must initialize the algorithm with a coarse solution
 
 # Discretization is the number of sub-domains to use for each time interval
-const COARSEDISCRETIZATION = 2^3
+const COARSEDISCRETIZATION = 2^2
 const SUBDOMAINS = partition(ivp.domain, COARSEDISCRETIZATION)
 
 # here we define the underlying propagator e.g. euler, RK4, velocity verlet, etc.
@@ -72,6 +76,30 @@ function euler(point, slope, step)
     return point + step * slope
 end
 
+propagate = euler
+
+"""
+    coarsePropagate(domain :: Interval, initialValue :: Float64)
+
+Coarsely propagate a value on an interval.
+"""
 function coarsePropagate(domain :: Interval, initialValue :: Float64)
-    
+    step              = (domain.ub - domain.lb) / COARSEDISCRETIZATION
+    discretizedDomain = discretize(domain, COARSEDISCRETIZATION)
+    dummy             = similar(discretizedDomain)
+    dummy[1] = initialValue
+    for i in 2:COARSEDISCRETIZATION + 1
+        dummy[i] = propagate(dummy[i - 1], der(discretizedDomain[i - 1], dummy[i - 1]), step)
+    end
+    return dummy
 end
+
+discretizedDomain = discretize(DOMAIN, COARSEDISCRETIZATION)
+solution = coarsePropagate(DOMAIN, INITIALVALUE)
+# [discretizedDomain, solution] |> display
+plot(
+    discretizedDomain, 
+    [solution, exp.(discretizedDomain)],
+    label = ["numeric" "analytic"]
+)
+scatter!(discretizedDomain, solution, label = "")
