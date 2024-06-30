@@ -131,14 +131,35 @@ Threads.@threads for i in eachindex(SUBDOMAINS)
     subDomainCorrectors[i] = fineSolution[end] - coarseSolution[end]
 end
 
-# TODO: add correction phase
+# Now we correct
 
+"""
+    correct(domain :: Interval, initialValue :: Float64)
+
+Coarsely propagate the initial value with corrections.
+"""
+function correct(correctors) :: Vector{Vector{Float64}}
+    step              = (DOMAIN.ub - DOMAIN.lb) / COARSEDISCRETIZATION
+    discretizedDomain = discretize(DOMAIN, COARSEDISCRETIZATION)
+    solution          = similar(discretizedDomain)
+    solution[1] = INITIALVALUE
+    for i in 2:COARSEDISCRETIZATION + 1
+        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step) + correctors[i]
+    end
+    return [discretizedDomain |> collect, solution]
+end
+
+solution = correct(subDomainCorrectors)
+
+# lines
 plot(
     discretizedDomain, 
     [solution, exp.(discretizedDomain)],
     label = ["numeric" "analytic"]
-)                                                                      # Lines
-scatter!(discretizedDomain, solution, label = "")                      # Numeric dots
+)
+# Dots to highlight numeric solution
+scatter!(discretizedDomain, solution, label = "")
+# subdomain coarse propagation
 [scatter!(
     dummyCoarse[region][1],
     dummyCoarse[region][2],
@@ -146,6 +167,7 @@ scatter!(discretizedDomain, solution, label = "")                      # Numeric
     markershape = :rect
     ) for region in eachindex(dummyCoarse)
 ]
+# subdomain fine propagation
 [scatter!(
     dummyFine[region][1],
     dummyFine[region][2],
@@ -153,4 +175,6 @@ scatter!(discretizedDomain, solution, label = "")                      # Numeric
     markershape = :diamond
     ) for region in eachindex(dummyFine)
 ]
+# Correctors
 scatter!(discretizedDomain, subDomainCorrectors, label = "Correctors") # Correctors
+plot!(corrected..., label = "Corrected")
