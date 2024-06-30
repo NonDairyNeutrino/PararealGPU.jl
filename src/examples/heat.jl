@@ -63,7 +63,8 @@ ivp = InitialValueProblem(der, INITIALVALUE, DOMAIN)
 # first we must initialize the algorithm with a coarse solution
 
 # Discretization is the number of sub-domains to use for each time interval
-const COARSEDISCRETIZATION = 2^2
+const COARSEDISCRETIZATION = 2^1
+const FINEDISCRETIZATION   = (2^2) * COARSEDISCRETIZATION
 const SUBDOMAINS = partition(ivp.domain, COARSEDISCRETIZATION)
 
 # here we define the underlying propagator e.g. euler, RK4, velocity verlet, etc.
@@ -83,23 +84,73 @@ propagate = euler
 
 Coarsely propagate a value on an interval.
 """
-function coarsePropagate(domain :: Interval, initialValue :: Float64)
+function coarsePropagate(domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
     step              = (domain.ub - domain.lb) / COARSEDISCRETIZATION
     discretizedDomain = discretize(domain, COARSEDISCRETIZATION)
-    dummy             = similar(discretizedDomain)
-    dummy[1] = initialValue
+    solution          = similar(discretizedDomain)
+    solution[1] = initialValue
     for i in 2:COARSEDISCRETIZATION + 1
-        dummy[i] = propagate(dummy[i - 1], der(discretizedDomain[i - 1], dummy[i - 1]), step)
+        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step)
     end
-    return dummy
+    return [discretizedDomain |> collect, solution]
+end
+
+"""
+    finePropagate(domain :: Interval, initialValue :: Float64)
+
+Finely propagate a value on an interval.
+"""
+function finePropagate(domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
+    step              = (domain.ub - domain.lb) / FINEDISCRETIZATION
+    discretizedDomain = discretize(domain, FINEDISCRETIZATION)
+    solution          = similar(discretizedDomain)
+    solution[1] = initialValue
+    for i in 2:FINEDISCRETIZATION + 1
+        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step)
+    end
+    return [discretizedDomain |> collect, solution]
 end
 
 discretizedDomain = discretize(DOMAIN, COARSEDISCRETIZATION)
-solution = coarsePropagate(DOMAIN, INITIALVALUE)
-# [discretizedDomain, solution] |> display
+solution = coarsePropagate(DOMAIN, INITIALVALUE)[2]
+
+# now that we have the initial coarse propagation
+# parallel iterations can begin
+dummyCoarse         = similar(SUBDOMAINS, Vector{Vector{Float64}})
+dummyFine           = similar(SUBDOMAINS, Vector{Vector{Float64}})
+subDomainCorrectors = similar(solution)
+# this loop could be broken into two loops i.e. loop fission
+Threads.@threads for i in eachindex(SUBDOMAINS)
+    println("Subdomain $i is running on thread ", Threads.threadid())
+    coarseDomain, coarseSolution = coarsePropagate(SUBDOMAINS[i], solution[i])
+    dummyCoarse[i] = [coarseDomain, coarseSolution]
+
+    fineDomain,   fineSolution   = finePropagate(SUBDOMAINS[i], solution[i])
+    dummyFine[i] = [fineDomain, fineSolution]
+
+    subDomainCorrectors[i] = fineSolution[end] - coarseSolution[end]
+end
+
+# TODO: add correction phase
+
 plot(
     discretizedDomain, 
     [solution, exp.(discretizedDomain)],
     label = ["numeric" "analytic"]
-)
-scatter!(discretizedDomain, solution, label = "")
+)                                                                      # Lines
+scatter!(discretizedDomain, solution, label = "")                      # Numeric dots
+[scatter!(
+    dummyCoarse[region][1],
+    dummyCoarse[region][2],
+    label = "dummyCoarse $region",
+    markershape = :rect
+    ) for region in eachindex(dummyCoarse)
+]
+[scatter!(
+    dummyFine[region][1],
+    dummyFine[region][2],
+    label = "dummyFine $region",
+    markershape = :diamond
+    ) for region in eachindex(dummyFine)
+]
+scatter!(discretizedDomain, subDomainCorrectors, label = "Correctors") # Correctors
