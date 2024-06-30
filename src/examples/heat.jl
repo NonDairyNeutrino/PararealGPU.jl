@@ -4,22 +4,65 @@
 # Date: 6/29/24
 using Plots
 
-# COMPUTATIONAL PARAMETERS
-const COARSESTEP = 0.1
-const FINESTEP   = COARSESTEP / 10
-# PHYSICAL PARAMETERS
-const DOMAIN           = Vector(1:2)
-const INITIALVALUE = 1
-
+# FRAMEWORK OF A PROBLEM
 """
-    der(t, u)
+    Interval(lb, ub)
 
-The differential equation represented as a definition of the derivative.
+An object with lower and upper bounds.
 """
-function der(t, u)
-    return u # functional representation of du/dt = u
+struct Interval
+    lb :: Float64
+    ub :: Float64
 end
 
+"""
+    InitialValueProblem(der, initialValue, domain)
+
+An object representing an initial value problem
+"""
+struct InitialValueProblem
+    der :: Function
+    initialValue :: Number
+    domain :: Interval
+end
+
+"""
+    partition(domain :: Interval, discretization :: Int)
+
+Partition an interval into a given number of mostly disjoint sub-domains.
+"""
+function partition(domain :: Interval, discretization :: Int) :: Vector{Interval}
+    subdomains = Vector{Interval}(undef, COARSEDISCRETIZATION)
+    step       = (domain.ub - domain.lb) / COARSEDISCRETIZATION
+    for i in 0:COARSEDISCRETIZATION - 1
+        subdomains[i + 1] = Interval(domain.lb + i * step, domain.lb + (i + 1) * step)
+    end
+    return subdomains
+end
+
+# BEGIN DEFINING PROBLEM AT HAND
+
+# begin by defining the initial value problem:
+# the derivative function defined in terms of time and the value of the function
+function der(t, u)
+    return u # this encodes the differential equation du/dt = u
+end
+
+const INITIALVALUE = 1
+const DOMAIN       = Interval(0, 1)
+
+ivp = InitialValueProblem(der, INITIALVALUE, DOMAIN)
+
+# now that the problem has been defined
+# give it to the parareal algorithm
+
+# first we must initialize the algorithm with a coarse solution
+
+# Discretization is the number of sub-domains to use for each time interval
+const COARSEDISCRETIZATION = 2^3
+const SUBDOMAINS = partition(ivp.domain, COARSEDISCRETIZATION)
+
+# here we define the underlying propagator e.g. euler, RK4, velocity verlet, etc.
 """
     euler(point, slope, step)
 
@@ -29,31 +72,6 @@ function euler(point, slope, step)
     return point + step * slope
 end
 
-"""
-    coarse(point)
-
-The coarse propagator.
-"""
-function coarse(point)
-    return euler(point, der(point, point), COARSESTEP)
+function coarsePropagate(domain :: Interval, initialValue :: Float64)
+    
 end
-
-"""
-    fine(point, slope)
-
-The fine propagator
-"""
-function fine(point)
-    return euler(point, der(point, point), FINESTEP)
-end
-
-# BEGIN ALGORITHM
-# INITIALIZE
-solution = similar(DOMAIN, Float64)
-solution[1] = INITIALVALUE
-for i in 2:length(DOMAIN)
-    solution[i] = fine(solution[i-1])
-end
-
-display(solution)
-plot(DOMAIN, [INITIALVALUE .+ exp.(DOMAIN), solution], label = ["Analytic" "Numeric"])
