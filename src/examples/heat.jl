@@ -4,70 +4,22 @@
 # Date: 6/29/24
 using Plots
 
-# FRAMEWORK OF A PROBLEM
-"""
-    Interval(lb, ub)
+# SET UP
+include("../structs.jl")
+include("../convergence.jl")
+include("../discretization.jl")
+include("../propagation.jl")
 
-An object with lower and upper bounds.
-"""
-struct Interval
-    lb :: Float64
-    ub :: Float64
-end
-
-"""
-    InitialValueProblem(der, initialValue, domain)
-
-An object representing an initial value problem
-"""
-struct InitialValueProblem
-    der :: Function
-    initialValue :: Number
-    domain :: Interval
-end
-
-function discretize(domain :: Interval, discretization :: Int) :: StepRangeLen
-    return range(domain.lb, domain.ub, discretization + 1)
-end
-
-"""
-    partition(domain :: Interval, discretization :: Int)
-
-Partition an interval into a given number of mostly disjoint sub-domains.
-"""
-function partition(domain :: Interval, discretization :: Int) :: Vector{Interval}
-    subdomains = Vector{Interval}(undef, COARSEDISCRETIZATION)
-    step       = (domain.ub - domain.lb) / COARSEDISCRETIZATION
-    for i in 0:COARSEDISCRETIZATION - 1
-        subdomains[i + 1] = Interval(domain.lb + i * step, domain.lb + (i + 1) * step)
-    end
-    return subdomains
-end
-
-# BEGIN DEFINING PROBLEM AT HAND
-
-# begin by defining the initial value problem:
+# DEFINE THE INITIAL VALUE PROBLEM
 # the derivative function defined in terms of time and the value of the function
 function der(t, u)
     return u # this encodes the differential equation du/dt = u
 end
-
 const INITIALVALUE = 1.0
 const DOMAIN       = Interval(0., 1.)
+const ivp = InitialValueProblem(der, INITIALVALUE, DOMAIN)
 
-ivp = InitialValueProblem(der, INITIALVALUE, DOMAIN)
-
-# now that the problem has been defined
-# give it to the parareal algorithm
-
-# first we must initialize the algorithm with a coarse solution
-
-# Discretization is the number of sub-domains to use for each time interval
-const COARSEDISCRETIZATION = 2^1
-const FINEDISCRETIZATION   = (2^2) * COARSEDISCRETIZATION
-const SUBDOMAINS = partition(ivp.domain, COARSEDISCRETIZATION)
-
-# here we define the underlying propagator e.g. euler, RK4, velocity verlet, etc.
+# define the underlying propagator e.g. euler, RK4, velocity verlet, etc.
 """
     euler(point, slope, step)
 
@@ -76,105 +28,41 @@ The Euler method of numerical integration.
 function euler(point, slope, step)
     return point + step * slope
 end
+propagator = euler
 
-propagate = euler
+# first we must initialize the algorithm with a coarse solution
+# Discretization is the number of sub-domains to use for each time interval
+const COARSEDISCRETIZATION = 2^8
+const FINEDISCRETIZATION   = COARSEDISCRETIZATION^2
+const SUBDOMAINS = partition(ivp.domain, COARSEDISCRETIZATION)
 
-"""
-    coarsePropagate(domain :: Interval, initialValue :: Float64)
+# INITIAL COARSE PROPAGATION
+discretizedDomain, solution = coarsePropagate(propagator, DOMAIN, INITIALVALUE)
 
-Coarsely propagate a value on an interval.
-"""
-function coarsePropagate(domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
-    step              = (domain.ub - domain.lb) / COARSEDISCRETIZATION
-    discretizedDomain = discretize(domain, COARSEDISCRETIZATION)
-    solution          = similar(discretizedDomain)
-    solution[1] = initialValue
-    for i in 2:COARSEDISCRETIZATION + 1
-        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step)
-    end
-    return [discretizedDomain |> collect, solution]
-end
-
-"""
-    finePropagate(domain :: Interval, initialValue :: Float64)
-
-Finely propagate a value on an interval.
-"""
-function finePropagate(domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
-    step              = (domain.ub - domain.lb) / FINEDISCRETIZATION
-    discretizedDomain = discretize(domain, FINEDISCRETIZATION)
-    solution          = similar(discretizedDomain)
-    solution[1] = initialValue
-    for i in 2:FINEDISCRETIZATION + 1
-        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step)
-    end
-    return [discretizedDomain |> collect, solution]
-end
-
-discretizedDomain = discretize(DOMAIN, COARSEDISCRETIZATION)
-solution = coarsePropagate(DOMAIN, INITIALVALUE)[2]
-
-# now that we have the initial coarse propagation
-# parallel iterations can begin
-dummyCoarse         = similar(SUBDOMAINS, Vector{Vector{Float64}})
-dummyFine           = similar(SUBDOMAINS, Vector{Vector{Float64}})
+subDomainCoarse     = similar(SUBDOMAINS, Vector{Vector{Float64}})
+subDomainFine       = similar(SUBDOMAINS, Vector{Vector{Float64}})
 subDomainCorrectors = similar(solution)
-# this loop could be broken into two loops i.e. loop fission
-Threads.@threads for i in eachindex(SUBDOMAINS)
-    println("Subdomain $i is running on thread ", Threads.threadid())
-    coarseDomain, coarseSolution = coarsePropagate(SUBDOMAINS[i], solution[i])
-    dummyCoarse[i] = [coarseDomain, coarseSolution]
-
-    fineDomain,   fineSolution   = finePropagate(SUBDOMAINS[i], solution[i])
-    dummyFine[i] = [fineDomain, fineSolution]
-
-    subDomainCorrectors[i] = fineSolution[end] - coarseSolution[end]
-end
-
-# Now we correct
-
-"""
-    correct(domain :: Interval, initialValue :: Float64)
-
-Coarsely propagate the initial value with corrections.
-"""
-function correct(correctors) :: Vector{Vector{Float64}}
-    step              = (DOMAIN.ub - DOMAIN.lb) / COARSEDISCRETIZATION
-    discretizedDomain = discretize(DOMAIN, COARSEDISCRETIZATION)
-    solution          = similar(discretizedDomain)
-    solution[1] = INITIALVALUE
-    for i in 2:COARSEDISCRETIZATION + 1
-        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step) + correctors[i]
+# LOOP PHASE
+for iteration in 1:COARSEDISCRETIZATION # while # TODO: add convergence criterion
+    println("Iteration $iteration")
+    # PARALLEL COARSE
+    Threads.@threads for i in eachindex(SUBDOMAINS)
+        println("Coarse subdomain $i is running on thread ", Threads.threadid())
+        subDomainCoarse[i] = coarsePropagate(propagator, SUBDOMAINS[i], solution[i])
     end
-    return [discretizedDomain |> collect, solution]
+
+    # PARALLEL FINE
+    Threads.@threads for i in eachindex(SUBDOMAINS)
+        println("Fine subdomain $i is running on thread ", Threads.threadid())
+        subDomainFine[i] = finePropagate(propagator, SUBDOMAINS[i], solution[i])
+    end
+
+    # CORRECTORS
+    for subdomain in eachindex(SUBDOMAINS)
+        subDomainCorrectors[subdomain] = subDomainFine[subdomain][2][end] - subDomainCoarse[subdomain][2][end]
+    end
+    # CORRECTION PHASE
+    global solution = correct(propagator, subDomainCorrectors)
 end
 
-solution = correct(subDomainCorrectors)
-
-# lines
-plot(
-    discretizedDomain, 
-    [solution, exp.(discretizedDomain)],
-    label = ["numeric" "analytic"]
-)
-# Dots to highlight numeric solution
-scatter!(discretizedDomain, solution, label = "")
-# subdomain coarse propagation
-[scatter!(
-    dummyCoarse[region][1],
-    dummyCoarse[region][2],
-    label = "dummyCoarse $region",
-    markershape = :rect
-    ) for region in eachindex(dummyCoarse)
-]
-# subdomain fine propagation
-[scatter!(
-    dummyFine[region][1],
-    dummyFine[region][2],
-    label = "dummyFine $region",
-    markershape = :diamond
-    ) for region in eachindex(dummyFine)
-]
-# Correctors
-scatter!(discretizedDomain, subDomainCorrectors, label = "Correctors") # Correctors
-plot!(corrected..., label = "Corrected")
+include("../plotting.jl")
