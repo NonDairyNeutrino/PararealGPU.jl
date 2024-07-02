@@ -1,47 +1,20 @@
-"""
-    coarsePropagate(propagate :: Function, domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
-
-Coarsely propagate a value on an interval.
-"""
-function coarsePropagate(propagate :: Function, domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
-    step              = (domain.ub - domain.lb) / COARSEDISCRETIZATION
-    discretizedDomain = discretize(domain, COARSEDISCRETIZATION)
-    solution          = similar(discretizedDomain)
-    solution[1] = initialValue
-    for i in 2:COARSEDISCRETIZATION + 1
-        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step)
-    end
-    return [discretizedDomain |> collect, solution]
+struct Propagator
+    propagator :: Function
+    discretization :: Int
 end
 
 """
-    finePropagate(propagate :: Function, domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
+    propagate(ivp :: InitialValueProblem, propagator :: Propagator) :: Vector{Vector{Float64}}
 
-Finely propagate a value on an interval.
+Propagate an initial value problem using a given propagation scheme.
 """
-function finePropagate(propagate :: Function, domain :: Interval, initialValue :: Float64) :: Vector{Vector{Float64}}
-    step              = (domain.ub - domain.lb) / FINEDISCRETIZATION
-    discretizedDomain = discretize(domain, FINEDISCRETIZATION)
+function propagate(ivp :: InitialValueProblem, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization)) :: Vector{Vector{Float64}}
+    step              = (ivp.domain.ub - ivp.domain.lb) / propagator.discretization
+    discretizedDomain = discretize(ivp.domain, propagator.discretization)
     solution          = similar(discretizedDomain)
-    solution[1] = initialValue
-    for i in 2:FINEDISCRETIZATION + 1
-        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step)
+    solution[1]       = ivp.initialValue
+    for i in 2 : propagator.discretization + 1
+        solution[i] = propagator.propagator(solution[i - 1], ivp.der(discretizedDomain[i - 1], solution[i - 1]), step) + correctors[i]
     end
     return [discretizedDomain |> collect, solution]
-end
-
-"""
-    correct(domain :: Interval, initialValue :: Float64)
-
-Coarsely propagate the initial value with corrections.
-"""
-function correct(propagate :: Function, correctors ::Vector{Float64}) :: Vector{Float64}
-    step              = (DOMAIN.ub - DOMAIN.lb) / COARSEDISCRETIZATION
-    discretizedDomain = discretize(DOMAIN, COARSEDISCRETIZATION)
-    solution          = similar(discretizedDomain)
-    solution[1] = INITIALVALUE
-    for i in 2:COARSEDISCRETIZATION + 1
-        solution[i] = propagate(solution[i - 1], der(discretizedDomain[i - 1], solution[i - 1]), step) + correctors[i]
-    end
-    return solution
 end
