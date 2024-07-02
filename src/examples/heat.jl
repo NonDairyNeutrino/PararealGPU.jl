@@ -2,13 +2,7 @@
 # initial value problem of du/dt = u with u(0) = u0
 # Author: Nathan Chapman
 # Date: 6/29/24
-using Plots
-
-# SET UP
-include("../structs.jl")
-include("../convergence.jl")
-include("../discretization.jl")
-include("../propagation.jl")
+using Plots, .Parareal
 
 # DEFINE THE INITIAL VALUE PROBLEM
 # the derivative function defined in terms of time and the value of the function
@@ -34,10 +28,12 @@ propagator = euler
 # Discretization is the number of sub-domains to use for each time interval
 const COARSEDISCRETIZATION = 2^8
 const FINEDISCRETIZATION   = COARSEDISCRETIZATION^2
+
+# BEGIN PARAREAL PACKAGE FUNCTIONALITY
 const SUBDOMAINS = partition(ivp.domain, COARSEDISCRETIZATION)
 
 # INITIAL COARSE PROPAGATION
-discretizedDomain, solution = coarsePropagate(propagator, DOMAIN, INITIALVALUE)
+discretizedDomain, solution = coarsePropagate(propagator, ivp.domain, ivp.initialValue)
 
 subDomainCoarse     = similar(SUBDOMAINS, Vector{Vector{Float64}})
 subDomainFine       = similar(SUBDOMAINS, Vector{Vector{Float64}})
@@ -64,5 +60,6 @@ for iteration in 1:COARSEDISCRETIZATION # while # TODO: add convergence criterio
     # CORRECTION PHASE
     global solution = correct(propagator, subDomainCorrectors)
 end
+# END PARAREAL PACKAGE FUNCTIONALITY
 
 include("../plotting.jl")
