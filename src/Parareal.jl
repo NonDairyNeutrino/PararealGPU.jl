@@ -8,27 +8,40 @@ include("discretization.jl")
 include("propagation.jl")
 
 function parareal(
-    ivp :: InitialValueProblem,
-    propagator :: Function,
+    ivp                  :: InitialValueProblem,
+    propagator           :: Function,
     coarseDiscretization :: Int,
-    fineDiscetization :: Int)
+    fineDiscetization    :: Int)
+    # Some notes on terminology and consistency
+    # IVP.................A structure representing an initial value problem
+    #                     consisting of a derivative function, an initial value
+    #                     and a domain (see Domain below)
+    # Domain..............the interval on which an IVP is defined
+    # Subdomain...........a domain that is a subset of another domain
+    # Discretized Domain..a vector of points, all of which are in a domain
+    # Range...............
+    # Discretized Range...a vector of points corresponding to the output of the
+    #                     solution function
+    # Solution............an ordered pair of the discretized domain and the
+    #                     discretized range that satisfies the original IVP
+    # Propagator..........a structure consisting of a numerical integrator
+    #                     and the number of points on which to evaluate
 
     # create a bunch of sub-intervals on which to parallelize
-    subDomains = partition(ivp.domain, coarseDiscretization)
+    subDomains       = partition(ivp.domain, coarseDiscretization)
+    coarsePropagator = Propagator(propagator, coarseDiscretization)
+    finePropagator   = Propagator(propagator, fineDiscetization)
     # INITIAL PROPAGATION
     # effectively creating an initial value for each sub-interval
     # same as the end of the loop but with all correctors equal to zero
-    coarsePropagator = Propagator(propagator, coarseDiscretization)
-    finePropagator   = Propagator(propagator, fineDiscetization)
-    discretizedDomain, solution = propagate(ivp, coarsePropagator)
-    println(length(solution))
+    discretizedDomain, discretizedRange = propagate(ivp, coarsePropagator)
     # create a bunch of smaller initial value problems that can be solved in parallel
-    subProblems = InitialValueProblem.(ivp.der, solution, subDomains)
+    subProblems = InitialValueProblem.(ivp.der, discretizedRange[1:end-1], subDomains)
 
     # allocate space
-    subDomainCoarse     = similar(subDomains, Vector{Vector{Float64}})
-    subDomainFine       = similar(subDomains, Vector{Vector{Float64}})
-    subDomainCorrectors = similar(solution)
+    subSolutionCoarse = similar(subDomains, Vector{Vector{Float64}})
+    subSolutionFine   = similar(subDomains, Vector{Vector{Float64}})
+    correctors        = similar(discretizedRange)
     # LOOP PHASE
     for iteration in 1:coarseDiscretization # while # TODO: add convergence criterion
         # println("Iteration $iteration")
@@ -36,22 +49,23 @@ function parareal(
         # PARALLEL COARSE
         Threads.@threads for i in eachindex(subProblems)
             # println("Coarse subdomain $i is running on thread ", Threads.threadid())
-            subDomainCoarse[i] = propagate(subProblems[i], coarsePropagator)
+            subSolutionCoarse[i] = propagate(subProblems[i], coarsePropagator)
         end
 
         # PARALLEL FINE
         Threads.@threads for i in eachindex(subProblems)
             # println("Fine subdomain $i is running on thread ", Threads.threadid())
-            subDomainFine[i] = finePropagate(subProblems[i], finePropagator)
+            subSolutionFine[i] = propagate(subProblems[i], finePropagator)
         end
 
         # CORRECTORS
         for i in eachindex(subProblems)
-            subDomainCorrectors[i] = subDomainFine[i][2][end] - subDomainCoarse[i][2][end]
+            correctors[i] = subSolutionFine[i][2][end] - subSolutionCoarse[i][2][end]
         end
         # CORRECTION PHASE
-        solution = propagate(ivp, coarsePropagator, subDomainCorrectors)
+        _, discretizedRange = propagate(ivp, coarsePropagator, correctors)
+        subProblems         = InitialValueProblem.(ivp.der, discretizedRange[1:end-1], subDomains)
     end
-    return [discretizedDomain, solution]
+    return [discretizedDomain, discretizedRange]
 end
 end

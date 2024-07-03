@@ -2,11 +2,10 @@
 plot(
     discretizedDomain, 
     [solution, exp.(discretizedDomain)],
-    label = ["numeric" "analytic"],
-    plot_title = "" 
+    label = ["numeric" "analytic"]
 )
 # Dots to highlight numeric solution
-scatter!(discretizedDomain, solution, label = "") |> display
+scatter!(discretizedDomain, solution, label = "")
 # subdomain coarse propagation
 # for region in eachindex(subDomainCoarse)
 #     scatter!(
@@ -23,7 +22,7 @@ scatter!(discretizedDomain, solution, label = "") |> display
 #         markershape = :diamond
 #     ) 
 # end
-display(plot!())
+# display(plot!())
 # Correctors
 # scatter!(discretizedDomain, subDomainCorrectors, label = "Correctors") # Correctors
 # plot!(corrected..., label = "Corrected")

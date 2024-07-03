@@ -28,9 +28,10 @@ propagator = euler
 
 # first we must initialize the algorithm with a coarse solution
 # Discretization is the number of sub-domains to use for each time interval
-const COARSEDISCRETIZATION = 2^8
-const FINEDISCRETIZATION   = COARSEDISCRETIZATION^2
+const COARSEDISCRETIZATION = 2^2
+const FINEDISCRETIZATION   = COARSEDISCRETIZATION * 2^2
 
 discretizedDomain, solution = parareal(ivp, propagator, COARSEDISCRETIZATION, FINEDISCRETIZATION)
-
+display(discretizedDomain)
+display(solution)
 include("../plotting.jl")
