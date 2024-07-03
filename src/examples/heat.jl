@@ -2,6 +2,8 @@
 # initial value problem of du/dt = u with u(0) = u0
 # Author: Nathan Chapman
 # Date: 6/29/24
+
+include("../Parareal.jl")
 using Plots, .Parareal
 
 # DEFINE THE INITIAL VALUE PROBLEM
@@ -29,37 +31,6 @@ propagator = euler
 const COARSEDISCRETIZATION = 2^8
 const FINEDISCRETIZATION   = COARSEDISCRETIZATION^2
 
-# BEGIN PARAREAL PACKAGE FUNCTIONALITY
-const SUBDOMAINS = partition(ivp.domain, COARSEDISCRETIZATION)
-
-# INITIAL COARSE PROPAGATION
-discretizedDomain, solution = coarsePropagate(propagator, ivp.domain, ivp.initialValue)
-
-subDomainCoarse     = similar(SUBDOMAINS, Vector{Vector{Float64}})
-subDomainFine       = similar(SUBDOMAINS, Vector{Vector{Float64}})
-subDomainCorrectors = similar(solution)
-# LOOP PHASE
-for iteration in 1:COARSEDISCRETIZATION # while # TODO: add convergence criterion
-    println("Iteration $iteration")
-    # PARALLEL COARSE
-    Threads.@threads for i in eachindex(SUBDOMAINS)
-        println("Coarse subdomain $i is running on thread ", Threads.threadid())
-        subDomainCoarse[i] = coarsePropagate(propagator, SUBDOMAINS[i], solution[i])
-    end
-
-    # PARALLEL FINE
-    Threads.@threads for i in eachindex(SUBDOMAINS)
-        println("Fine subdomain $i is running on thread ", Threads.threadid())
-        subDomainFine[i] = finePropagate(propagator, SUBDOMAINS[i], solution[i])
-    end
-
-    # CORRECTORS
-    for subdomain in eachindex(SUBDOMAINS)
-        subDomainCorrectors[subdomain] = subDomainFine[subdomain][2][end] - subDomainCoarse[subdomain][2][end]
-    end
-    # CORRECTION PHASE
-    global solution = correct(propagator, subDomainCorrectors)
-end
-# END PARAREAL PACKAGE FUNCTIONALITY
+discretizedDomain, solution = parareal(ivp, propagator, COARSEDISCRETIZATION, FINEDISCRETIZATION)
 
 include("../plotting.jl")
