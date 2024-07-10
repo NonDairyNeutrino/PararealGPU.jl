@@ -1,3 +1,6 @@
 # Parareal.jl
+Documentation for the Parareal.jl package to solve initial value differential equations in parallel.
 
-Documentation for Parareal.jl
+```@autodocs
+Modules = [Parareal]
+```

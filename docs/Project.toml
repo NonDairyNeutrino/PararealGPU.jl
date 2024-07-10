@@ -1,2 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Parareal = "964e4d13-8dbc-4c93-b7e8-f77004e5b2a3"
