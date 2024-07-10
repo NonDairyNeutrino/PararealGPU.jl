@@ -7,6 +7,17 @@ include("convergence.jl")
 include("discretization.jl")
 include("propagation.jl")
 
+"""
+    parareal(
+        ivp                  :: InitialValueProblem,
+        propagator           :: Function,
+        coarseDiscretization :: Int,
+        fineDiscetization    :: Int
+    )
+
+Numerically solve the given initial value problem in parallel using a given
+propagator and discretizations.
+"""
 function parareal(
     ivp                  :: InitialValueProblem,
     propagator           :: Function,
