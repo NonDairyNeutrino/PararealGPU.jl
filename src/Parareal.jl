@@ -5,7 +5,7 @@ export Interval, InitialValueProblem # structs.jl
 export parareal                      # Parareal.jl
 
 include("integration.jl")
-include("structs.jl")
+include("ivp.jl")
 include("convergence.jl")
 include("discretization.jl")
 include("propagation.jl")
