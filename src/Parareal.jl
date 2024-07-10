@@ -1,7 +1,10 @@
 module Parareal
 
-export Interval, InitialValueProblem, parareal
+export euler, verlet                 # integration.jl
+export Interval, InitialValueProblem # structs.jl
+export parareal                      # Parareal.jl
 
+include("integration.jl")
 include("structs.jl")
 include("convergence.jl")
 include("discretization.jl")
