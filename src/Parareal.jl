@@ -11,21 +11,12 @@ include("discretization.jl")
 include("propagation.jl")
 
 """
-    parareal(
-        ivp                  :: InitialValueProblem,
-        propagator           :: Function,
-        coarseDiscretization :: Int,
-        fineDiscetization    :: Int
-    )
+    parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Propagator) where T <: InitialValueProblem
 
 Numerically solve the given initial value problem in parallel using a given
 propagator and discretizations.
 """
-function parareal(
-    ivp                  :: InitialValueProblem,
-    propagator           :: Function,
-    coarseDiscretization :: Int,
-    fineDiscetization    :: Int)
+function parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Propagator) where T <: InitialValueProblem
     # Some notes on terminology and consistency
     # IVP.................A structure representing an initial value problem
     #                     consisting of a derivative function, an initial value
@@ -42,9 +33,7 @@ function parareal(
     #                     and the number of points on which to evaluate
 
     # create a bunch of sub-intervals on which to parallelize
-    subDomains       = partition(ivp.domain, coarseDiscretization)
-    coarsePropagator = Propagator(propagator, coarseDiscretization)
-    finePropagator   = Propagator(propagator, fineDiscetization)
+    subDomains = partition(ivp.domain, coarseDiscretization)
     # INITIAL PROPAGATION
     # effectively creating an initial value for each sub-interval
     # same as the end of the loop but with all correctors equal to zero
