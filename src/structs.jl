@@ -9,12 +9,34 @@ struct Interval
 end
 
 """
+    InitialValueProblem
+
+An abstract super-type representing a first- or second-order initial value problem.
+"""
+abstract type InitialValueProblem end
+
+"""
     InitialValueProblem(der, initialValue, domain)
 
 An object representing an initial value problem
 """
-struct InitialValueProblem
-    der :: Function
+struct FirstOrderIVP <: InitialValueProblem
+    der          :: Function
     initialValue :: Number
-    domain :: Interval
+    domain       :: Interval
 end
+IVP1 = FirstOrderIVP # type alias
+
+"""
+    SecondOrderIVP(acceleration, initialPosition, initialVelocity, domain)
+
+An object representing a second-order initial value problem.
+"""
+struct SecondOrderIVP <: InitialValueProblem
+    acceleration    :: Function
+    initialPosition :: Vector{Float64}
+    initialVelocity :: Vector{Float64}
+    domain          :: Interval
+end
+IVP2 = SecondOrderIVP # type alias
+
