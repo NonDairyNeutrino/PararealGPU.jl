@@ -39,7 +39,7 @@ function parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Pr
     # same as the end of the loop but with all correctors equal to zero
     discretizedDomain, discretizedRange = propagate(ivp, coarsePropagator)
     # create a bunch of smaller initial value problems that can be solved in parallel
-    subProblems = InitialValueProblem.(ivp.der, discretizedRange[1:end-1], subDomains)
+    subProblems = InitialValueProblem.(ivp.der, discretizedRange[1:end-1], subDomains) # FIXME: generalize to include SecondOrderIVP
 
     # allocate space
     subSolutionCoarse = similar(subDomains, Vector{Vector{Float64}})
