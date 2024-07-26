@@ -21,6 +21,14 @@ function verlet(position :: Vector{Float64}, prev_position :: Vector{Float64}, a
     return 2 * position - prev_position + acceleration * step^2
 end
 
-function velocityVerlet(position :: Vector{Float64}, velocity :: Vector{Float64}, step :: Float64)
-    
+"""
+    velocityVerlet(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, step :: Float64) :: Vector{Float64}
+
+Get the next position and velocity using the Velocity Verlet algorithm.
+"""
+function velocityVerlet(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, step :: Float64) :: Vector{Float64}
+    newPosition     = position + velocity * step + 0.5 * acceleration * step^2
+    newAcceleration = acceleration(position, velocity)
+    newVelocity     = velocity + 0.5 * (acceleration + newAcceleration) * step
+    return [newPosition, newVelocity]
 end
