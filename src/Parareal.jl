@@ -1,7 +1,8 @@
 module Parareal
 
 export euler, verlet                 # integration.jl
-export Interval, InitialValueProblem # structs.jl
+export Interval, FirstOrderIVP, SecondOrderIVP # ivp.jl
+export Propagator
 export parareal                      # Parareal.jl
 
 include("integration.jl")
@@ -31,6 +32,7 @@ function parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Pr
     #                     discretized range that satisfies the original IVP
     # Propagator..........a structure consisting of a numerical integrator
     #                     and the number of points on which to evaluate
+    coarseDiscretization = coarsePropagator.discretization
 
     # create a bunch of sub-intervals on which to parallelize
     subDomains = partition(ivp.domain, coarseDiscretization)
@@ -39,7 +41,7 @@ function parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Pr
     # same as the end of the loop but with all correctors equal to zero
     discretizedDomain, discretizedRange = propagate(ivp, coarsePropagator)
     # create a bunch of smaller initial value problems that can be solved in parallel
-    subProblems = InitialValueProblem.(ivp.der, discretizedRange[1:end-1], subDomains) # FIXME: generalize to include SecondOrderIVP
+    subProblems = T.(ivp.der, discretizedRange[1:end-1], subDomains) # FIXME: generalize to include SecondOrderIVP
 
     # allocate space
     subSolutionCoarse = similar(subDomains, Vector{Vector{Float64}})
@@ -67,7 +69,7 @@ function parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Pr
         end
         # CORRECTION PHASE
         _, discretizedRange = propagate(ivp, coarsePropagator, correctors)
-        subProblems         = InitialValueProblem.(ivp.der, discretizedRange[1:end-1], subDomains)
+        subProblems         = T.(ivp.der, discretizedRange[1:end-1], subDomains)
     end
     return [discretizedDomain, discretizedRange]
 end

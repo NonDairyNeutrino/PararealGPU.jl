@@ -13,15 +13,17 @@ function der(t, u)
 end
 const INITIALVALUE = 1.0
 const DOMAIN       = Interval(0., 1.)
-const ivp = InitialValueProblem(der, INITIALVALUE, DOMAIN)
-
-# define the underlying propagator e.g. euler, RK4, velocity verlet, etc.
-propagator = euler
+const ivp          = FirstOrderIVP(der, INITIALVALUE, DOMAIN)
 
 # first we must initialize the algorithm with a coarse solution
 # Discretization is the number of sub-domains to use for each time interval
-const COARSEDISCRETIZATION = Threads.nthreads()
-const FINEDISCRETIZATION   = 10^2
+const PROPAGATOR           = euler
+const COARSEDISCRETIZATION = Threads.nthreads() # 1 region per core
+const FINEDISCRETIZATION   = 100
 
-discretizedDomain, solution = parareal(ivp, propagator, COARSEDISCRETIZATION, FINEDISCRETIZATION)
+const COARSEPROPAGATOR = Propagator(PROPAGATOR, COARSEDISCRETIZATION)
+const FINEPROPAGATOR   = Propagator(PROPAGATOR, FINEDISCRETIZATION)
+
+discretizedDomain, solution = parareal(ivp, COARSEPROPAGATOR, FINEPROPAGATOR)
+# display([discretizedDomain, solution])
 include("../src/plotting.jl")
