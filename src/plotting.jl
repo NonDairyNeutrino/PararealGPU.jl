@@ -2,7 +2,8 @@
 plot(
     discretizedDomain, 
     [solution, exp.(discretizedDomain)],
-    label = ["numeric" "analytic"]
+    label = ["numeric" "analytic"],
+    title = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION"
 )
 # Dots to highlight numeric solution
 scatter!(discretizedDomain, solution, label = "")
