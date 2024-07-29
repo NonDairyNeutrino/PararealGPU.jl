@@ -39,13 +39,14 @@ function parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Pr
     # INITIAL PROPAGATION
     # effectively creating an initial value for each sub-interval
     # same as the end of the loop but with all correctors equal to zero
-    discretizedDomain, discretizedRange = propagate(ivp, coarsePropagator)
+    initialSolution = propagate(ivp, coarsePropagator)
+    discretizedDomain, discretizedRange = initialSolution.domain, initialSolution.range
     # create a bunch of smaller initial value problems that can be solved in parallel
     subProblems = T.(ivp.der, discretizedRange[1:end-1], subDomains) # FIXME: generalize to include SecondOrderIVP
 
     # allocate space
-    subSolutionCoarse = similar(subDomains, Vector{Vector{Float64}})
-    subSolutionFine   = similar(subDomains, Vector{Vector{Float64}})
+    subSolutionCoarse = similar(subDomains, Solution)
+    subSolutionFine   = similar(subDomains, Solution)
     correctors        = similar(discretizedRange)
     # LOOP PHASE
     for iteration in 1:coarseDiscretization # while # TODO: add convergence criterion
@@ -65,10 +66,10 @@ function parareal(ivp :: T, coarsePropagator :: Propagator, finePropagator :: Pr
 
         # CORRECTORS
         for i in eachindex(subProblems)
-            correctors[i] = subSolutionFine[i][2][end] - subSolutionCoarse[i][2][end]
+            correctors[i] = subSolutionFine[i].range[end] - subSolutionCoarse[i].range[end]
         end
         # CORRECTION PHASE
-        _, discretizedRange = propagate(ivp, coarsePropagator, correctors)
+        discretizedRange = propagate(ivp, coarsePropagator, correctors).range
         subProblems         = T.(ivp.der, discretizedRange[1:end-1], subDomains)
     end
     return [discretizedDomain, discretizedRange]
