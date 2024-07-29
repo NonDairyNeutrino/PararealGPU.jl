@@ -1,9 +1,12 @@
+"""
+Parareal.jl provides functionality to solve an initial value problem in parallel through the use of a predictor-corrector scheme.
+"""
 module Parareal
 
-export euler, verlet                 # integration.jl
+export euler, verlet, velocityVerlet           # integration.jl
 export Interval, FirstOrderIVP, SecondOrderIVP # ivp.jl
 export Propagator
-export parareal                      # Parareal.jl
+export parareal                                # Parareal.jl
 
 include("integration.jl")
 include("ivp.jl")
