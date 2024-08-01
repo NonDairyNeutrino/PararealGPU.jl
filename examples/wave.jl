@@ -8,15 +8,15 @@ using Plots, .Parareal
 
 # DEFINE THE SECOND-ORDER INITIAL VALUE PROBLEM
 """
-    acceleration(position :: Vector{Float64}, velocity :: Vector{Float64}) :: Vector{Float64}
+    acceleration(position :: Float64, velocity :: Float64) :: Float64
 
-Define the acceleration given 
+Define the acceleration in terms of the given differential equation.
 """
-function acceleration(position :: Vector{Float64}, velocity :: Vector{Float64}) :: Vector{Float64}
+function acceleration(position :: Float64, velocity :: Float64) :: Float64
     return -position # this encodes the differential equation u''(t) = -u
 end
 
-const INITIALPOSITION = 0.
+const INITIALPOSITION = 1.
 const INITIALVELOCITY = 0.
 const DOMAIN          = Interval(0., 2 * pi)
 const IVP             = SecondOrderIVP(acceleration, INITIALPOSITION, INITIALVELOCITY, DOMAIN) # second order initial value problem
@@ -32,4 +32,11 @@ const FINEPROPAGATOR   = Propagator(PROPAGATOR, FINEDISCRETIZATION)
 discretizedDomain, discretizedRange = parareal(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)
 
 # plotting
-include("../src/plotting.jl")
+plot(
+    discretizedDomain, 
+    [discretizedRange, cos.(discretizedDomain)],
+    label = ["numeric" "analytic"],
+    title = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION"
+)
+# Dots to highlight numeric solution
+scatter!(discretizedDomain, discretizedRange, label = "")

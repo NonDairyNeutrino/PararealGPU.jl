@@ -15,7 +15,11 @@ Structured representation of the solution to a numerical differential equation.
 """
 struct Solution
     domain :: Vector{Float64}
-    range  :: Union{Vector{Float64}, Vector{Vector{Float64}}}
+    range  :: Vector{Float64}
+    derivative :: Vector{Float64}
+    function Solution(domain, range :: Vector{Float64}, derivative = zeros(length(range) - 1) :: Vector{Float64})
+        return new(domain, range, derivative)
+    end
 end
 
 """
@@ -44,13 +48,14 @@ Propagate an initial value problem using a given propagation scheme.
 function propagate(ivp :: SecondOrderIVP, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
     step              = (ivp.domain.ub - ivp.domain.lb) / propagator.discretization
     discretizedDomain = discretize(ivp.domain, propagator.discretization)
-    solution          = similar(discretizedDomain, ivp.initialPosition)
-    derivative        = similar(discretizedDomain, ivp.initialVelocity)
+    solution          = similar(discretizedDomain, ivp.initialPosition |> typeof)
+    derivative        = similar(discretizedDomain, ivp.initialVelocity |> typeof)
 
     solution[1]       = ivp.initialPosition
     derivative[1]     = ivp.initialVelocity
     for i in Iterators.drop(eachindex(solution), 2)
-        solution[i], derivative[i] = propagator.propagator(solution[i - 1], derivative[i - 1], ivp.acceleration(solution[i - 1], derivative[i - 1])) + correctors[i]
+        solution[i], derivative[i] = propagator.propagator(solution[i - 1], derivative[i - 1], ivp.acceleration, step)
+        solution[i] += correctors[i]
     end
-    return Solution(discretizedDomain, solution)
+    return Solution(discretizedDomain, solution, derivative)
 end
