@@ -34,8 +34,8 @@ An object representing a second-order initial value problem.
 """
 struct SecondOrderIVP <: InitialValueProblem
     acceleration    :: Function
-    initialPosition :: Vector{Float64}
-    initialVelocity :: Vector{Float64}
+    initialPosition :: Float64
+    initialVelocity :: Float64
     domain          :: Interval
 end
 IVP2 = SecondOrderIVP # type alias
