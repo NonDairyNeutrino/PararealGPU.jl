@@ -53,7 +53,7 @@ function propagate(ivp :: SecondOrderIVP, propagator :: Propagator, correctors :
 
     solution[1]       = ivp.initialPosition
     derivative[1]     = ivp.initialVelocity
-    for i in Iterators.drop(eachindex(solution), 2)
+    for i in Iterators.drop(eachindex(solution), 1)
         solution[i], derivative[i] = propagator.propagator(solution[i - 1], derivative[i - 1], ivp.acceleration, step)
         solution[i] += correctors[i]
     end
