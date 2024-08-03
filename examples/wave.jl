@@ -23,8 +23,8 @@ const IVP             = SecondOrderIVP(acceleration, INITIALPOSITION, INITIALVEL
 
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
 const PROPAGATOR           = velocityVerlet
-const COARSEDISCRETIZATION = Threads.nthreads()     # 1 region per core
-const FINEDISCRETIZATION   = 2 * Threads.nthreads()
+const COARSEDISCRETIZATION = 2^0 * Threads.nthreads()     # 1 region per core
+const FINEDISCRETIZATION   = 2^1 * COARSEDISCRETIZATION
 
 const COARSEPROPAGATOR = Propagator(PROPAGATOR, COARSEDISCRETIZATION)
 const FINEPROPAGATOR   = Propagator(PROPAGATOR, FINEDISCRETIZATION)

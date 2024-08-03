@@ -45,7 +45,7 @@ function parareal(ivp :: FirstOrderIVP, coarsePropagator :: Propagator, fineProp
     initialSolution = propagate(ivp, coarsePropagator)
     discretizedDomain, discretizedRange = initialSolution.domain, initialSolution.range
     # create a bunch of smaller initial value problems that can be solved in parallel
-    subProblems = FirstOrderIVP.(ivp.der, discretizedRange[1:end-1], subDomains) # FIXME: generalize to include SecondOrderIVP
+    subProblems = FirstOrderIVP.(ivp.der, discretizedRange[1:end-1], subDomains)
 
     # allocate space
     subSolutionCoarse = similar(subDomains, Solution)
@@ -114,7 +114,8 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
     # allocate space
     subSolutionCoarse = similar(subDomains, Solution)
     subSolutionFine   = similar(subDomains, Solution)
-    correctors        = similar(discretizedRange)
+    rangeCorrectors   = similar(discretizedRange)
+    velocityCorrectors= similar(discretizedRange) # length minus 1?
     # LOOP PHASE
     for iteration in 1:coarseDiscretization # while # TODO: add convergence criterion
         # println("Iteration $iteration")
@@ -133,12 +134,15 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
 
         # CORRECTORS
         for i in eachindex(subProblems)
-            correctors[i] = subSolutionFine[i].range[end] - subSolutionCoarse[i].range[end]
+            rangeCorrectors[i]    = subSolutionFine[i].range[end]      - subSolutionCoarse[i].range[end]
+        end
+        for i in eachindex(subProblems)
+            velocityCorrectors[i] = subSolutionFine[i].derivative[end] - subSolutionCoarse[i].derivative[end]
         end
         # CORRECTION PHASE
-        discretizedRange = propagate(ivp, coarsePropagator, correctors).range
-        
-        subProblems      = SecondOrderIVP.(ivp.acceleration, discretizedRange[1:end-1], discretizedVelocity[1:end-1], subDomains)
+        corrected   = propagate(ivp, coarsePropagator, rangeCorrectors, velocityCorrectors)
+        discretizedRange, discretizedVelocity = corrected.range, corrected.derivative
+        subProblems = SecondOrderIVP.(ivp.acceleration, discretizedRange[1:end-1], discretizedVelocity[1:end-1], subDomains)
     end
     return [discretizedDomain, discretizedRange]
 end

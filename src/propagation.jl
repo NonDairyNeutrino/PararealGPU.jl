@@ -45,17 +45,18 @@ end
 
 Propagate an initial value problem using a given propagation scheme.
 """
-function propagate(ivp :: SecondOrderIVP, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
+function propagate(ivp :: SecondOrderIVP, propagator :: Propagator, rangeCorrectors :: Vector{Float64} = zeros(propagator.discretization + 1), derivativeCorrectors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
     step              = (ivp.domain.ub - ivp.domain.lb) / propagator.discretization
     discretizedDomain = discretize(ivp.domain, propagator.discretization)
-    solution          = similar(discretizedDomain, ivp.initialPosition |> typeof)
+    range             = similar(discretizedDomain, ivp.initialPosition |> typeof)
     derivative        = similar(discretizedDomain, ivp.initialVelocity |> typeof)
 
-    solution[1]       = ivp.initialPosition
+    range[1]          = ivp.initialPosition
     derivative[1]     = ivp.initialVelocity
-    for i in Iterators.drop(eachindex(solution), 1)
-        solution[i], derivative[i] = propagator.propagator(solution[i - 1], derivative[i - 1], ivp.acceleration, step)
-        solution[i] += correctors[i]
+    for i in Iterators.drop(eachindex(range), 1)
+        range[i], derivative[i] = propagator.propagator(range[i - 1], derivative[i - 1], ivp.acceleration, step)
+        range[i]      += rangeCorrectors[i]
+        derivative[i] += derivativeCorrectors[i]
     end
-    return Solution(discretizedDomain, solution, derivative)
+    return Solution(discretizedDomain, range, derivative)
 end
