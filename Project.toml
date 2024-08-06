@@ -1,7 +1,10 @@
-name = "Parareal"
-uuid = "964e4d13-8dbc-4c93-b7e8-f77004e5b2a3"
+name = "PararealGPU"
+uuid = "68ede1e2-89e2-4fc2-8109-41c796c2e424"
 authors = ["nondairyneutrino <nathaniel.chapman@cwu.edu> and contributors"]
 version = "1.0.0-DEV"
+
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 
 [compat]
 julia = "1.10"
