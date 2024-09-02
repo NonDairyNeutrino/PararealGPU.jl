@@ -1,18 +1,22 @@
 """
 Parareal.jl provides functionality to solve an initial value problem in parallel through the use of a predictor-corrector scheme.
 """
-module Parareal
+module PararealGPU
 
 export euler, verlet, velocityVerlet           # integration.jl
 export Interval, FirstOrderIVP, SecondOrderIVP # ivp.jl
 export Propagator
 export parareal                                # Parareal.jl
 
+using CUDA
+import Adapt
+
 include("integration.jl")
 include("ivp.jl")
 include("convergence.jl")
 include("discretization.jl")
 include("propagation.jl")
+include("kernel.jl")
 
 """
     parareal(ivp :: FirstOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator)
@@ -56,10 +60,13 @@ function parareal(ivp :: FirstOrderIVP, coarsePropagator :: Propagator, fineProp
         # println("Iteration $iteration")
 
         # PARALLEL COARSE
-        Threads.@threads for i in eachindex(subProblems)
-            # println("Coarse subdomain $i is running on thread ", Threads.threadid())
-            subSolutionCoarse[i] = propagate(subProblems[i], coarsePropagator)
-        end
+        kernel = @cuda launch = false pararealKernel(subProblems, coarsePropagator, subSolutionCoarse)
+        config = launch_configuration(kernel.fun)
+        kernel(subProblems, coarsePropagator, subSolutionCoarse; config.threads, config.blocks)
+        # Threads.@threads for i in eachindex(subProblems)
+        #     # println("Coarse subdomain $i is running on thread ", Threads.threadid())
+        #     subSolutionCoarse[i] = propagate(subProblems[i], coarsePropagator)
+        # end
 
         # PARALLEL FINE
         Threads.@threads for i in eachindex(subProblems)

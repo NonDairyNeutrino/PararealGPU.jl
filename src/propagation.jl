@@ -7,6 +7,16 @@ struct Propagator
     propagator :: Function
     discretization :: Int
 end
+"""
+    Adapt.adapt_structure(to, itp::Propagator)
+
+TBW
+"""
+function Adapt.adapt_structure(to, prop::Propagator)
+    propagator = Adapt.adapt_structure(to, prop.propagator)
+    discretization = Adapt.adapt_structure(to, prop.discretization)
+    Propagator(propagator, discretization)
+end
 
 """
     Solution(domain :: Vector{Float64}, range :: Any)
@@ -20,6 +30,16 @@ struct Solution
     function Solution(domain, range :: Vector{Float64}, derivative = zeros(length(range) - 1) :: Vector{Float64})
         return new(domain, range, derivative)
     end
+end
+"""
+    Adapt.adapt_structure(to, itp::Solution)
+
+TBW
+"""
+function Adapt.adapt_structure(to, sol::Solution)
+    domain = Adapt.adapt_structure(to, sol.domain)
+    range = Adapt.adapt_structure(to, sol.range)
+    Solution(domain, range)
 end
 
 """
