@@ -7,16 +7,17 @@ struct Propagator
     propagator :: Function
     discretization :: Int
 end
-"""
-    Adapt.adapt_structure(to, itp::Propagator)
+Adapt.@adapt_structure Propagator
+# """
+#     Adapt.adapt_structure(to, itp::Propagator)
 
-TBW
-"""
-function Adapt.adapt_structure(to, prop::Propagator)
-    propagator = Adapt.adapt_structure(to, prop.propagator)
-    discretization = Adapt.adapt_structure(to, prop.discretization)
-    Propagator(propagator, discretization)
-end
+# TBW
+# """
+# function Adapt.adapt_structure(to, prop::Propagator)
+#     propagator = Adapt.adapt_structure(to, prop.propagator)
+#     discretization = Adapt.adapt_structure(to, prop.discretization)
+#     Propagator(propagator, discretization)
+# end
 
 """
     Solution(domain :: Vector{Float64}, range :: Any)
@@ -31,16 +32,17 @@ struct Solution
         return new(domain, range, derivative)
     end
 end
-"""
-    Adapt.adapt_structure(to, itp::Solution)
+Adapt.@adapt_structure Solution
+# """
+#     Adapt.adapt_structure(to, itp::Solution)
 
-TBW
-"""
-function Adapt.adapt_structure(to, sol::Solution)
-    domain = Adapt.adapt_structure(to, sol.domain)
-    range = Adapt.adapt_structure(to, sol.range)
-    Solution(domain, range)
-end
+# TBW
+# """
+# function Adapt.adapt_structure(to, sol::Solution)
+#     domain = Adapt.adapt_structure(to, sol.domain)
+#     range = Adapt.adapt_structure(to, sol.range)
+#     Solution(domain, range)
+# end
 
 """
     propagate(ivp :: FirstOrderIVP, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution

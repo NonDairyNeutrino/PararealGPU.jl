@@ -7,16 +7,17 @@ struct Interval
     lb :: Float64
     ub :: Float64
 end
-"""
-    Adapt.adapt_structure(to, itp::Interval)
+Adapt.@adapt_structure Interval
+# """
+#     Adapt.adapt_structure(to, itp::Interval)
 
-TBW
-"""
-function Adapt.adapt_structure(to, interval::Interval)
-    lb = Adapt.adapt_structure(to, interval.lb)
-    ub = Adapt.adapt_structure(to, interval.ub)
-    Interval(lb, ub)
-end
+# TBW
+# """
+# function Adapt.adapt_structure(to, interval::Interval)
+#     lb = Adapt.adapt_structure(to, interval.lb)
+#     ub = Adapt.adapt_structure(to, interval.ub)
+#     Interval(lb, ub)
+# end
 
 """
     InitialValueProblem
@@ -36,17 +37,18 @@ struct FirstOrderIVP <: InitialValueProblem
     domain       :: Interval
 end
 IVP1 = FirstOrderIVP # type alias
-"""
-    Adapt.adapt_structure(to, ivp::FirstOrderIVP)
+Adapt.@adapt_structure FirstOrderIVP
+# """
+#     Adapt.adapt_structure(to, ivp::FirstOrderIVP)
 
-TBW
-"""
-function Adapt.adapt_structure(to, ivp::FirstOrderIVP)
-    der          = Adapt.adapt_structure(to, ivp.der)
-    initialValue = Adapt.adapt_structure(to, ivp.initialValue)
-    domain       = Adapt.adapt_structure(to, ivp.domain)
-    FirstOrderIVP(der, initialValue, domain)
-end
+# TBW
+# """
+# function Adapt.adapt_structure(to, ivp::FirstOrderIVP)
+#     der          = Adapt.adapt_structure(to, ivp.der)
+#     initialValue = Adapt.adapt_structure(to, ivp.initialValue)
+#     domain       = Adapt.adapt_structure(to, ivp.domain)
+#     FirstOrderIVP(der, initialValue, domain)
+# end
 
 """
     SecondOrderIVP(acceleration, initialPosition, initialVelocity, domain)
@@ -60,15 +62,16 @@ struct SecondOrderIVP <: InitialValueProblem
     domain          :: Interval
 end
 IVP2 = SecondOrderIVP # type alias
-"""
-    Adapt.adapt_structure(to, ivp::SecondOrderIVP)
+Adapt.@adapt_structure SecondOrderIVP
+# """
+#     Adapt.adapt_structure(to, ivp::SecondOrderIVP)
 
-TBW
-"""
-function Adapt.adapt_structure(to, ivp::SecondOrderIVP)
-    acceleration    = Adapt.adapt_structure(to, ivp.acceleration)
-    initialPosition = Adapt.adapt_structure(to, ivp.initialPosition)
-    initialVelocity = Adapt.adapt_structure(to, ivp.initialVelocity)
-    domain          = Adapt.adapt_structure(to, ivp.domain)
-    SecondOrderIVP(acceleration, initialPosition, initialVelocity, domain)
-end
+# TBW
+# """
+# function Adapt.adapt_structure(to, ivp::SecondOrderIVP)
+#     acceleration    = Adapt.adapt_structure(to, ivp.acceleration)
+#     initialPosition = Adapt.adapt_structure(to, ivp.initialPosition)
+#     initialVelocity = Adapt.adapt_structure(to, ivp.initialVelocity)
+#     domain          = Adapt.adapt_structure(to, ivp.domain)
+#     SecondOrderIVP(acceleration, initialPosition, initialVelocity, domain)
+# end
