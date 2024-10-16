@@ -3,8 +3,8 @@
 # Author: Nathan Chapman
 # Date: 7/10/24
 
-include("../src/Parareal.jl")
-using Plots, .Parareal
+include("../src/PararealGPU.jl")
+using Plots, .PararealGPU
 
 # DEFINE THE SECOND-ORDER INITIAL VALUE PROBLEM
 """
