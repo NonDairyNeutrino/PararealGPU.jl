@@ -106,6 +106,9 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
     #                     discretized range that satisfies the original IVP
     # Propagator..........a structure consisting of a numerical integrator
     #                     and the number of points on which to evaluate
+    
+# TODO: create structs with fields first passed to the device
+# e.g. SecondOrderIVP(ivp.acceleration, cu(discretizedRange[1]), ...)
     coarseDiscretization = coarsePropagator.discretization
 
     # create a bunch of sub-intervals on which to parallelize
@@ -127,11 +130,13 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
     for iteration in 1:coarseDiscretization # while # TODO: add convergence criterion
         # println("Iteration $iteration")
 
+# TODO: change from CPU parallel to GPU parallel with kernel/pararealKernel
         # PARALLEL COARSE
-        Threads.@threads for i in eachindex(subProblems)
-            # println("Coarse subdomain $i is running on thread ", Threads.threadid())
-            subSolutionCoarse[i] = propagate(subProblems[i], coarsePropagator)
-        end
+
+        # Threads.@threads for i in eachindex(subProblems)
+        #     # println("Coarse subdomain $i is running on thread ", Threads.threadid())
+        #     subSolutionCoarse[i] = propagate(subProblems[i], coarsePropagator)
+        # end
 
         # PARALLEL FINE
         Threads.@threads for i in eachindex(subProblems)
