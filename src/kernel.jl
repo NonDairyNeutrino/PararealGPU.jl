@@ -1,15 +1,4 @@
 """
-    Adapt.adapt_structure(to, itp::Interpolate)
-
-TBW
-"""
-function Adapt.adapt_structure(to, itp::Interpolate)
-    xs = Adapt.adapt_structure(to, itp.xs)
-    ys = Adapt.adapt_structure(to, itp.ys)
-    Interpolate(xs, ys)
-end
-
-"""
     pararealKernel(subProblems, propagator, subSolution)
 
 TBW
