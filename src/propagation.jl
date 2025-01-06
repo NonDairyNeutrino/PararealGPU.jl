@@ -7,17 +7,6 @@ struct Propagator
     propagator :: Function
     discretization :: Int
 end
-Adapt.@adapt_structure Propagator
-# """
-#     Adapt.adapt_structure(to, itp::Propagator)
-
-# TBW
-# """
-# function Adapt.adapt_structure(to, prop::Propagator)
-#     propagator = Adapt.adapt_structure(to, prop.propagator)
-#     discretization = Adapt.adapt_structure(to, prop.discretization)
-#     Propagator(propagator, discretization)
-# end
 
 """
     Solution(domain :: Vector{Float64}, range :: Any)
@@ -32,17 +21,6 @@ struct Solution
         return new(domain, range, derivative)
     end
 end
-Adapt.@adapt_structure Solution
-# """
-#     Adapt.adapt_structure(to, itp::Solution)
-
-# TBW
-# """
-# function Adapt.adapt_structure(to, sol::Solution)
-#     domain = Adapt.adapt_structure(to, sol.domain)
-#     range = Adapt.adapt_structure(to, sol.range)
-#     Solution(domain, range)
-# end
 
 """
     propagate(ivp :: FirstOrderIVP, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
@@ -67,18 +45,18 @@ end
 
 Propagate an initial value problem using a given propagation scheme.
 """
-function propagate(ivp :: SecondOrderIVP, propagator :: Propagator, rangeCorrectors :: Vector{Float64} = zeros(propagator.discretization + 1), derivativeCorrectors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
+function propagate(ivp :: SecondOrderIVP, propagator :: Propagator, rangeCorrectors :: Vector{Vector{Float64}} = fill(zeros(ivp.initialPosition |> length), propagator.discretization + 1), derivativeCorrectors :: Vector{Vector{Float64}} = fill(zeros(ivp.initialVelocity |> length), propagator.discretization + 1)) :: Solution
     step              = (ivp.domain.ub - ivp.domain.lb) / propagator.discretization
     discretizedDomain = discretize(ivp.domain, propagator.discretization)
-    range             = similar(discretizedDomain, ivp.initialPosition |> typeof)
-    derivative        = similar(discretizedDomain, ivp.initialVelocity |> typeof)
+    position          = similar(discretizedDomain, ivp.initialPosition |> typeof)
+    velocity          = similar(discretizedDomain, ivp.initialVelocity |> typeof)
 
-    range[1]          = ivp.initialPosition
-    derivative[1]     = ivp.initialVelocity
-    for i in Iterators.drop(eachindex(range), 1)
-        range[i], derivative[i] = propagator.propagator(range[i - 1], derivative[i - 1], ivp.acceleration, step)
-        range[i]      += rangeCorrectors[i]
-        derivative[i] += derivativeCorrectors[i]
+    position[1]       = ivp.initialPosition
+    velocity[1]       = ivp.initialVelocity
+    for i in Iterators.drop(eachindex(position), 1)
+        position[i], velocity[i] = propagator.propagator(position[i - 1], velocity[i - 1], ivp.acceleration, step)
+        position[i] += rangeCorrectors[i]
+        velocity[i] += derivativeCorrectors[i]
     end
-    return Solution(discretizedDomain, range, derivative)
+    return Solution(discretizedDomain, position, velocity)
 end
