@@ -11,15 +11,26 @@ function euler(point, slope, step)
 end
 
 """
-    verlet(position :: Vector{Float64}, prev_position :: Vector{Float64}, acceleration :: Vector{Float64}, step :: Float64) :: Vector{Float64}
+    sympecticEuler(timeStep :: Float64, position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function) :: Tuple{Vector{Float64}, Vector{Float64}}
 
-Get the next position given the current and previous positions, and the current acceleration.
-
-NOTE: This is the base Verlet algorithm, not Stormer-Verlet nor Velocity-Verlet.
+Gives the single propagation using the symplectic Euler integrator.
 """
-function verlet(position :: Vector{Float64}, prev_position :: Vector{Float64}, acceleration :: Vector{Float64}, step :: Float64) :: Vector{Float64}
-    return 2 * position - prev_position + acceleration * step^2
+function sympecticEuler(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, timeStep :: Float64) :: Tuple{Vector{Float64}, Vector{Float64}}
+    positionNew = position + velocity * timeStep
+    velocityNew = velocity + acceleration(positionNew, velocity) * timeStep
+    return positionNew, velocityNew
 end
+
+# """
+#     verlet(position :: Vector{Float64}, prev_position :: Vector{Float64}, acceleration :: Vector{Float64}, step :: Float64) :: Vector{Float64}
+
+# Get the next position given the current and previous positions, and the current acceleration.
+
+# NOTE: This is the base Verlet algorithm, not Stormer-Verlet nor Velocity-Verlet.
+# """
+# function verlet(position :: Vector{Float64}, prev_position :: Vector{Float64}, acceleration :: Vector{Float64}, step :: Float64) :: Vector{Float64}
+#     return 2 * position - prev_position + acceleration * step^2
+# end
 
 """
     velocityVerlet(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, step :: Float64) :: Vector{Float64}
