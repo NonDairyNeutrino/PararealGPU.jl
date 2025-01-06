@@ -25,10 +25,10 @@ Adapt.@adapt_structure Propagator
 Structured representation of the solution to a numerical differential equation.
 """
 struct Solution
-    domain :: Vector{Float64}
-    range  :: Vector{Float64}
-    derivative :: Vector{Float64}
-    function Solution(domain, range :: Vector{Float64}, derivative = zeros(length(range) - 1) :: Vector{Float64})
+    domain   :: Vector{Float64}         # time vector
+    position :: Vector{Vector{Float64}} # time vector of space vectors
+    velocity :: Vector{Vector{Float64}} # time vector of space vectors
+    function Solution(domain, range :: Vector{Vector{Float64}}, derivative = zeros(length(range) - 1) :: Vector{Vector{Float64}})
         return new(domain, range, derivative)
     end
 end
