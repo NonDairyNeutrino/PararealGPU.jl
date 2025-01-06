@@ -25,9 +25,14 @@ const COARSEPROPAGATOR = Propagator(PROPAGATOR, COARSEDISCRETIZATION)
 
 # TESTING
 # println("Testing partition")
-# subDomainVector = partition(IVP.domain, COARSEPROPAGATOR.discretization)
+subDomainVector = partition(IVP.domain, COARSEPROPAGATOR.discretization)
 # display(subDomainVector)
 
-println("Testing propagate")
+# println("Testing propagate")
 initialSolution = propagate(IVP, COARSEPROPAGATOR)
-display(initialSolution)
+# display(initialSolution)
+
+# println("Testing subProblems")
+subProblemVector = createSubproblems(IVP, COARSEPROPAGATOR)
+# display(subProblemVector)
+
