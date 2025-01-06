@@ -7,7 +7,6 @@ struct Interval
     lb :: Float64
     ub :: Float64
 end
-Adapt.@adapt_structure Interval
 # """
 #     Adapt.adapt_structure(to, itp::Interval)
 
@@ -37,7 +36,6 @@ struct FirstOrderIVP <: InitialValueProblem
     domain       :: Interval
 end
 IVP1 = FirstOrderIVP # type alias
-Adapt.@adapt_structure FirstOrderIVP
 # """
 #     Adapt.adapt_structure(to, ivp::FirstOrderIVP)
 
@@ -56,13 +54,12 @@ Adapt.@adapt_structure FirstOrderIVP
 An object representing a second-order initial value problem.
 """
 struct SecondOrderIVP <: InitialValueProblem
-    acceleration    :: Function
-    initialPosition :: Float64
-    initialVelocity :: Float64
     domain          :: Interval
+    acceleration    :: Function
+    initialPosition :: Vector{Float64}
+    initialVelocity :: Vector{Float64}
 end
 IVP2 = SecondOrderIVP # type alias
-Adapt.@adapt_structure SecondOrderIVP
 # """
 #     Adapt.adapt_structure(to, ivp::SecondOrderIVP)
 
