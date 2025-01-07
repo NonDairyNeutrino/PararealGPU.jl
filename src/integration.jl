@@ -15,7 +15,7 @@ end
 
 Gives the single propagation using the symplectic Euler integrator.
 """
-function sympecticEuler(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, timeStep :: Float64) :: Tuple{Vector{Float64}, Vector{Float64}}
+function symplecticEuler(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, timeStep :: Float64) :: Tuple{Vector{Float64}, Vector{Float64}}
     positionNew = position + velocity * timeStep
     velocityNew = velocity + acceleration(positionNew, velocity) * timeStep
     return positionNew, velocityNew
