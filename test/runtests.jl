@@ -44,3 +44,12 @@ subSolutionFineVector   = similar(subProblemVector, Solution)
 positionCorrectorVector = similar(subProblemVector, Vector{Float64})
 velocityCorrectorVector = similar(subProblemVector, Vector{Float64})
 
+for iteration in 1:COARSEDISCRETIZATION
+    # the following loops are disjoint to hopefully take advantage of processor pre-fetching
+    # i.e. loop fission
+
+    # coarse propagation
+    Threads.@threads for i in eachindex(subProblemVector)
+        # this is going to be the CUDA kernel
+        global subSolutionCoarseVector[i] = propagate(subProblemVector[i], COARSEPROPAGATOR)
+    end
