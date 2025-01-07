@@ -40,7 +40,7 @@ Get the next position and velocity using the Velocity Verlet algorithm.
 function velocityVerlet(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, step :: Float64) :: Vector{Vector{Float64}}
     oldAcceleration = acceleration(position, velocity)
     newPosition     = position + velocity * step + 0.5 * oldAcceleration * step^2
-    newAcceleration = acceleration(position, velocity)
+    newAcceleration = acceleration(newPosition, velocity)
     newVelocity     = velocity + 0.5 * (oldAcceleration + newAcceleration) * step
     return [newPosition, newVelocity]
 end
