@@ -73,3 +73,8 @@ for iteration in 1:COARSEDISCRETIZATION
     # CORRECTION PHASE
     # correct root solution
     global rootSolution = propagate(IVP, COARSEPROPAGATOR, positionCorrectorVector, velocityCorrectorVector)
+
+    # create new sub problems
+    iteration == COARSEDISCRETIZATION && break # no need for new subproblems after last iteration
+    updateSubproblems!(subProblemVector, rootSolution, acceleration)
+end
