@@ -53,3 +53,8 @@ for iteration in 1:COARSEDISCRETIZATION
         # this is going to be the CUDA kernel
         global subSolutionCoarseVector[i] = propagate(subProblemVector[i], COARSEPROPAGATOR)
     end
+
+    # fine propagation
+    Threads.@threads for i in eachindex(subProblemVector)
+        global subSolutionFineVector[i] = propagate(subProblemVector[i], FINEPROPAGATOR)
+    end
