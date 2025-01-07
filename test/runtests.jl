@@ -58,3 +58,18 @@ for iteration in 1:COARSEDISCRETIZATION
     Threads.@threads for i in eachindex(subProblemVector)
         global subSolutionFineVector[i] = propagate(subProblemVector[i], FINEPROPAGATOR)
     end
+
+    # CORRECTORS
+    for i in eachindex(subProblemVector)
+        fineCorrector                     = subSolutionFineVector[i].positionSequence[end]
+        coarseCorrector                   = subSolutionCoarseVector[i].positionSequence[end]
+        global positionCorrectorVector[i] = fineCorrector - coarseCorrector
+    end
+    for i in eachindex(subProblemVector)
+        fineCorrector                     = subSolutionFineVector[i].velocitySequence[end]
+        coarseCorrector                   = subSolutionCoarseVector[i].velocitySequence[end]
+        global velocityCorrectorVector[i] = fineCorrector - coarseCorrector
+    end
+    # CORRECTION PHASE
+    # correct root solution
+    global rootSolution = propagate(IVP, COARSEPROPAGATOR, positionCorrectorVector, velocityCorrectorVector)
