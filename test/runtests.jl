@@ -78,3 +78,15 @@ for iteration in 1:COARSEDISCRETIZATION
     iteration == COARSEDISCRETIZATION && break # no need for new subproblems after last iteration
     updateSubproblems!(subProblemVector, rootSolution, acceleration)
 end
+
+display(rootSolution)
+
+plot(
+    rootSolution.domain,
+    [rootSolution.positionSequence .|> first, rootSolution.velocitySequence .|> first],
+    label = ["position" "velocity"],
+    title = "propagator: $PROPAGATOR, discretization: $COARSEDISCRETIZATION"
+)
+# savefig("cos.png")
+
+# display(plt)
