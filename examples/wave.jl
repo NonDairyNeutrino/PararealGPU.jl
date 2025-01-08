@@ -32,6 +32,6 @@ plot(
     rootSolution.domain,
     [rootSolution.positionSequence .|> first, rootSolution.velocitySequence .|> first],
     label = ["position" "velocity"],
-    title = "propagator: $FINEPROPAGATOR, discretization: $INITIALDISCRETIZATION"
+    title = "propagator: $(FINEPROPAGATOR.propagator), discretization: $INITIALDISCRETIZATION"
 )
 savefig("cos.png")
