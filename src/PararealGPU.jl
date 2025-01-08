@@ -20,7 +20,7 @@ include("correction.jl")
 Numerically solve the given initial value problem in parallel using a given
 propagator and discretizations.
 """
-function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator)
+function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator; threshold = 10^(-10))
     # Some notes on terminology and consistency
     # IVP.................A structure representing an initial value problem
     #                     consisting of a derivative function, an initial value
@@ -43,31 +43,40 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
     positionCorrectorVector = similar(subProblemVector, Vector{Float64})
     velocityCorrectorVector = similar(subProblemVector, Vector{Float64})
 
-    for iteration in 1:initialDiscretization # parareal converges in at most INITIALDISCRETIZATION iterations
+    # for iteration in 1:initialDiscretization # parareal converges in at most INITIALDISCRETIZATION iterations
+    iteration = 0
+    maxIterations    = coarsePropagator.discretization
+    oldSolution      = rootSolution
+    newSolution      = nothing
+    while iteration <= maxIterations || !hasConverged(oldSolution, newSolution; threshold)
+        iteration += 1
+        oldSolution = newSolution
+        print("Beginning iteration $iteration\r")
         # the following loops are disjoint to hopefully take advantage of processor pre-fetching
         # i.e. loop fission
 
         # coarse propagation
         Threads.@threads for i in eachindex(subProblemVector)
             # this is going to be the CUDA kernel
-            global subSolutionCoarseVector[i] = propagate(subProblemVector[i], coarsePropagator)
+            subSolutionCoarseVector[i] = propagate(subProblemVector[i], coarsePropagator)
         end
 
         # fine propagation
         Threads.@threads for i in eachindex(subProblemVector)
-            global subSolutionFineVector[i] = propagate(subProblemVector[i], finePropagator)
+            subSolutionFineVector[i] = propagate(subProblemVector[i], finePropagator)
         end
 
         # correction
         correct!(subSolutionFineVector, subSolutionCoarseVector, positionCorrectorVector, velocityCorrectorVector)
 
         # correct root solution
-        global rootSolution = propagate(ivp, coarsePropagator, positionCorrectorVector, velocityCorrectorVector)
+        rootSolution = propagate(ivp, coarsePropagator, positionCorrectorVector, velocityCorrectorVector)
 
         # create new sub problems
         if iteration != initialDiscretization # no need for new subproblems after last iteration
             updateSubproblems!(subProblemVector, rootSolution, ivp.acceleration)
         end
+        newSolution = rootSolution
     end
     return rootSolution
 end
