@@ -1,42 +1,37 @@
-# This is an example of using the Parareal algorithm to solve the simple 
+# This is an example of using the Parareal algorithm to solve the simple
 # initial value problem of d^2 u / dt^2 = -u with u(0) = u0, u'(0) = v0
 # Author: Nathan Chapman
-# Date: 7/10/24
+# Date: 01/07/25
 
 include("../src/PararealGPU.jl")
-using Plots, .PararealGPU
-
-# DEFINE THE SECOND-ORDER INITIAL VALUE PROBLEM
+using .PararealGPU
+using Plots
+# SETUP
 """
     acceleration(position :: Float64, velocity :: Float64) :: Float64
 
 Define the acceleration in terms of the given differential equation.
 """
-function acceleration(position :: Float64, velocity :: Float64) :: Float64
+function acceleration(position :: Vector{Float64}, velocity :: Vector{Float64}) :: Vector{Float64}
     return -position # this encodes the differential equation u''(t) = -u
 end
 
-const INITIALPOSITION = 1.
-const INITIALVELOCITY = 0.
-const DOMAIN          = Interval(0., 2 * pi)
-const IVP             = SecondOrderIVP(acceleration, INITIALPOSITION, INITIALVELOCITY, DOMAIN) # second order initial value problem
+const INITIALPOSITION = [0.]
+const INITIALVELOCITY = [1.]
+const DOMAIN         = Interval(0., 2^2 * pi)
+const IVP      = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY) # second order initial value problem
 
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
-const PROPAGATOR           = velocityVerlet
-const COARSEDISCRETIZATION = 2^0 * Threads.nthreads()     # 1 region per core
-const FINEDISCRETIZATION   = 2^1 * COARSEDISCRETIZATION
+const INITIALDISCRETIZATION        = Threads.nthreads()
+const COARSEPROPAGATOR = Propagator(symplecticEuler, INITIALDISCRETIZATION)
+const FINEPROPAGATOR   = Propagator(velocityVerlet,  2^1 * INITIALDISCRETIZATION)
 
-const COARSEPROPAGATOR = Propagator(PROPAGATOR, COARSEDISCRETIZATION)
-const FINEPROPAGATOR   = Propagator(PROPAGATOR, FINEDISCRETIZATION)
+rootSolution = parareal(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)
 
-discretizedDomain, discretizedRange = parareal(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)
-
-# plotting
 plot(
-    discretizedDomain, 
-    [discretizedRange, cos.(discretizedDomain)],
-    label = ["numeric" "analytic"],
-    title = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION"
+    rootSolution.domain,
+    [rootSolution.positionSequence .|> first, rootSolution.velocitySequence .|> first],
+    label = ["position" "velocity"],
+    title = "propagator: $FINEPROPAGATOR, discretization: $INITIALDISCRETIZATION"
 )
-# Dots to highlight numeric solution
-scatter!(discretizedDomain, discretizedRange, label = "")
+savefig("cos.png")
