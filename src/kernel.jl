@@ -1,3 +1,4 @@
+using CUDA
 """
     pararealKernel(subProblems, propagator, subSolution)
 
@@ -12,3 +13,8 @@ function pararealKernel(subProblems, propagator, subSolution)
     end
     return nothing
 end
+
+# TODO: Adapt.@adapt_structure the following structures
+# - SecondOrderIVP
+# - Propagator
+# - Solution

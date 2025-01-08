@@ -3,24 +3,26 @@
 
 Structured representation of a propagation scheme with a discretization.
 """
-struct Propagator
+struct Propagator{T}
     propagator :: Function
     discretization :: Int
 end
+@adapt_structure Propagator
 
 """
     Solution(domain :: Vector{Float64}, positionSequence :: Vector{Vector{Float64}}, velocitySequence :: Vector{Vector{Float64}})
 
 Structured representation of the solution to a numerical differential equation.
 """
-struct Solution
-    domain           :: Vector{Float64}         # time vector
-    positionSequence :: Vector{Vector{Float64}} # time vector of space vectors
-    velocitySequence :: Vector{Vector{Float64}} # time vector of space vectors
-    function Solution(domain, positionSequence :: Vector{Vector{Float64}}, velocitySequence = zeros(length(positionSequence) - 1) :: Vector{Vector{Float64}})
+struct Solution{T}
+    domain           :: Vector{T}         # time vector
+    positionSequence :: Vector{Vector{T}} # time vector of space vectors
+    velocitySequence :: Vector{Vector{T}} # time vector of space vectors
+    function Solution(domain, positionSequence :: Vector{Vector{T}}, velocitySequence = zeros(length(positionSequence) - 1) :: Vector{Vector{T}})
         return new(domain, positionSequence, velocitySequence)
     end
 end
+@adapt_structure Solution
 
 """
     propagate(ivp :: FirstOrderIVP, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
