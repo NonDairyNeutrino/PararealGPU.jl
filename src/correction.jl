@@ -1,7 +1,4 @@
 # functionality for the correction phase of the parareal algorithm
-include("ivp.jl")
-include("propagation.jl")
-
 """
     correctPosition!(
     subSolutionFineVector   :: Vector{Solution}, 

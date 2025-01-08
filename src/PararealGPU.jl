@@ -9,10 +9,15 @@ export Propagator
 export parareal                                # Parareal.jl
 
 using CUDA
+using LinearAlgebra: norm
 
+include("ivp.jl")
+include("discretization.jl")
+include("propagation.jl")
 include("subproblems.jl")
 include("integration.jl")
 include("correction.jl")
+include("convergence.jl")
 
 """
     parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator)

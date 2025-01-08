@@ -1,7 +1,4 @@
 # functionality ot prepare the subproblems
-include("ivp.jl")
-include("discretization.jl")
-include("propagation.jl")
 
 """
     createSubproblems(ivp :: SecondOrderIVP, discretization :: Int) :: Vector{SecondOrderIVP}
