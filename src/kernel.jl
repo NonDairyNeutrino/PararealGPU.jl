@@ -15,11 +15,11 @@ function pararealKernel(subProblemVector, propagator, subSolutionVector)
 end
 
 """
-    kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Vector{CuArray}
+    kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Vector{Matrix}
 
-Initializes device arrays for the discretized domains, positions, and velocities.
+Initializes host-based arrays for the discretized domains, positions, and velocities.
 """
-function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Vector{CuArray}
+function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Tuple{Matrix, Matrix, Matrix}
     solutionCount            = length(subProblemVector)
     sequenceLength     = discretization
     positionDimension = 3
@@ -30,17 +30,34 @@ function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :
         discretizedDomain[1, i]   = problem.domain.lb
         discretizedDomain[end, i] = problem.domain.ub
     end
-    discretizedDomain = discretizedDomain |> cu
 
     # where to put stuff
     # arrays should be indexed such that elements are in columns for performance
     position          = zeros(solutionCount, positionDimension, sequenceLength)
     position[:, :, 1] = getproperty.(subProblemVector, :initialPosition)
-    position          = position |> cu
 
     velocity          = zeros(solutionCount, positionDimension, sequenceLength)
     velocity[:, :, 1] = getproperty.(subProblemVector, :initialVelocity)
-    velocity          = velocity |> cu
 
+    return discretizedDomain, position, velocity
+end
+
+"""
+    kernelWrapper(solver, acceleration, discretizedDomain, position, velocity)
+
+Optimize hardware usage and execute the kernel.
+"""
+function kernelWrapper(solver, acceleration, discretizedDomain, position, velocity) :: Tuple
+    problemCount      = size(discretizedDomain, 2)
+    discretizedDomain = discretizedDomain |> cu
+    position          = position          |> cu
+    velocity          = velocity          |> cu
+    
+    kernel  = @cuda launch=false kernel!(solver, acceleration, discretizedDomain, position, velocity)
+    config  = launch_configuration(kernel.fun)
+    threads = min(problemCount, config.threads)
+    blocks  = cld(problemCount, threads)
+    # actually launches the kernel on the device
+    kernel(solver, acceleration, discretizedDomain, position, velocity; threads, blocks)
     return discretizedDomain, position, velocity
 end
