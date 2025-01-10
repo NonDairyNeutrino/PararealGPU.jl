@@ -1,15 +1,22 @@
 using CUDA
 """
-    pararealKernel(subProblems, propagator, subSolution)
+    kernel!(solver, acceleration, discretizedDomain, position, velocity)
 
-TBW
+CUDA kernel to propagate the subProblems.
 """
-function pararealKernel(subProblemVector, propagator, subSolutionVector)
+function kernel!(solver, acceleration, discretizedDomain, position, velocity)
+    solutionCount = size(discretizedDomain, 2) # number of columns
     index = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride = gridDim().x * blockDim().x
     # could change below to while loop to avoid StepRangeLength for performance
-    for i = index:stride:length(subProblemVector)
-        @inbounds subSolutionVector[i] = propagate(subProblemVector[i], propagator)
+    for i = index:stride:length(solutionCount)
+        @inbounds discretizedDomain[:, i], position[:, :, i], velocity[:, :, i] = propagate(
+            solver, 
+            acceleration, 
+            discretizedDomain, 
+            position, 
+            velocity
+        )
     end
     return nothing
 end
@@ -19,7 +26,7 @@ end
 
 Initializes host-based arrays for the discretized domains, positions, and velocities.
 """
-function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Tuple{Matrix, Matrix, Matrix}
+function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Matrix, Matrix}
     solutionCount            = length(subProblemVector)
     sequenceLength     = discretization
     positionDimension = 3
@@ -47,7 +54,7 @@ end
 
 Optimize hardware usage and execute the kernel.
 """
-function kernelWrapper(solver, acceleration, discretizedDomain, position, velocity) :: Tuple
+function pararealSolution(solver, acceleration, discretizedDomain, position, velocity) :: Vector{Solution}
     problemCount      = size(discretizedDomain, 2)
     discretizedDomain = discretizedDomain |> cu
     position          = position          |> cu
@@ -59,5 +66,11 @@ function kernelWrapper(solver, acceleration, discretizedDomain, position, veloci
     blocks  = cld(problemCount, threads)
     # actually launches the kernel on the device
     kernel(solver, acceleration, discretizedDomain, position, velocity; threads, blocks)
-    return discretizedDomain, position, velocity
+
+    subSolutionVector = Vector{Solution}(undef, problemCount)
+    for i in 1:problemCount
+        subSolutionVector[i] = Solution(discretizedDomain[:, i], position[i, :, :], velocity[i, :, :])
+    end
+
+    return subSolutionVector
 end
