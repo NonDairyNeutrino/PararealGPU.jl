@@ -9,7 +9,7 @@ export Propagator
 export parareal                                # Parareal.jl
 
 using CUDA
-using Adapt: @adapt_structure
+# using Adapt: @adapt_structure
 using LinearAlgebra: norm
 
 include("ivp.jl")
@@ -63,15 +63,39 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
         # i.e. loop fission
 
         # coarse propagation
-        Threads.@threads for i in eachindex(subProblemVector)
-            # this is going to be the CUDA kernel
-            subSolutionCoarseVector[i] = propagate(subProblemVector[i], coarsePropagator)
-        end
+        # Threads.@threads for i in eachindex(subProblemVector)
+        #     # this is going to be the CUDA kernel
+        #     subSolutionCoarseVector[i] = propagate(subProblemVector[i], coarsePropagator)
+        # end
 
-        # fine propagation
-        Threads.@threads for i in eachindex(subProblemVector)
-            subSolutionFineVector[i] = propagate(subProblemVector[i], finePropagator)
-        end
+        # # fine propagation
+        # Threads.@threads for i in eachindex(subProblemVector)
+        #     subSolutionFineVector[i] = propagate(subProblemVector[i], finePropagator)
+        # end
+
+        discretizedDomain, positionCoarse, velocityCoarse = kernelPrep(
+            subProblemVector, 
+            coarsePropagator.discretization
+        )
+        subSolutionCoarseVector = pararealSolution(
+            coarsePropagator.propagator, 
+            ivp.acceleration, 
+            discretizedDomain, 
+            positionCoarse, 
+            velocityCoarse
+        )
+
+        discretizedDomain, positionFine, velocityFine = kernelPrep(
+            subProblemVector, 
+            coarsePropagator.discretization
+        )
+        subSolutionFineVector = pararealSolution(
+            finePropagator.propagator, 
+            ivp.acceleration, 
+            discretizedDomain, 
+            positionFine, 
+            velocityFine
+        )
 
         # correction
         correct!(subSolutionFineVector, subSolutionCoarseVector, positionCorrectorVector, velocityCorrectorVector)
