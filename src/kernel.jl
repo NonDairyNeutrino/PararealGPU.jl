@@ -14,7 +14,33 @@ function pararealKernel(subProblemVector, propagator, subSolutionVector)
     return nothing
 end
 
-# TODO: Adapt.@adapt_structure the following structures
-# - SecondOrderIVP
-# - Propagator
-# - Solution
+"""
+    kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Vector{CuArray}
+
+Initializes device arrays for the discretized domains, positions, and velocities.
+"""
+function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Vector{CuArray}
+    solutionCount            = length(subProblemVector)
+    sequenceLength     = discretization
+    positionDimension = 3
+
+    # port domain bounds to an array, THEN put the whole thing on the device
+    discretizedDomain = zeros(sequenceLength, solutionCount)
+    for (i, problem) in enumerate(subProblemVector)
+        discretizedDomain[1, i]   = problem.domain.lb
+        discretizedDomain[end, i] = problem.domain.ub
+    end
+    discretizedDomain = discretizedDomain |> cu
+
+    # where to put stuff
+    # arrays should be indexed such that elements are in columns for performance
+    position          = zeros(solutionCount, positionDimension, sequenceLength)
+    position[:, :, 1] = getproperty.(subProblemVector, :initialPosition)
+    position          = position |> cu
+
+    velocity          = zeros(solutionCount, positionDimension, sequenceLength)
+    velocity[:, :, 1] = getproperty.(subProblemVector, :initialVelocity)
+    velocity          = velocity |> cu
+
+    return discretizedDomain, position, velocity
+end
