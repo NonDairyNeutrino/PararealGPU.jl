@@ -62,17 +62,6 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
         # the following loops are disjoint to hopefully take advantage of processor pre-fetching
         # i.e. loop fission
 
-        # coarse propagation
-        # Threads.@threads for i in eachindex(subProblemVector)
-        #     # this is going to be the CUDA kernel
-        #     subSolutionCoarseVector[i] = propagate(subProblemVector[i], coarsePropagator)
-        # end
-
-        # # fine propagation
-        # Threads.@threads for i in eachindex(subProblemVector)
-        #     subSolutionFineVector[i] = propagate(subProblemVector[i], finePropagator)
-        # end
-
         discretizedDomain, positionCoarse, velocityCoarse = kernelPrep(
             subProblemVector, 
             coarsePropagator.discretization
