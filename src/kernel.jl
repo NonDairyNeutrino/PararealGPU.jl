@@ -98,9 +98,9 @@ function pararealSolution(solver, acceleration, discretizedDomain, position, vel
     threads = min(problemCount, config.threads)
     blocks  = cld(problemCount, threads)
     # actually launches the kernel on the device
-    println("Evaluating on $blocks blocks and $threads threads per block.")
+    # println("Evaluating on $blocks blocks and $threads threads per block.")
     kernel(solver, acceleration, discretizedDomain, position, velocity; threads, blocks)
-    println("GPU execution successful!")
+    # println("GPU execution successful!")
 
     subSolutionVector = Vector{Solution}(undef, problemCount)
     for i in 1:problemCount
