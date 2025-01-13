@@ -82,6 +82,9 @@ function kernel!(solver, acceleration, discretizedDomain, position, velocity) ::
     return nothing
 end
 
+"""
+    pararealSolution(solver, acceleration, discretizedDomain, position, velocity) :: Vector{Solution}
+
 Optimize hardware usage and execute the kernel.
 """
 function pararealSolution(solver, acceleration, discretizedDomain, position, velocity) :: Vector{Solution}
@@ -101,7 +104,12 @@ function pararealSolution(solver, acceleration, discretizedDomain, position, vel
 
     subSolutionVector = Vector{Solution}(undef, problemCount)
     for i in 1:problemCount
-        subSolutionVector[i] = Solution(discretizedDomain[:, i], position[i, :, :], velocity[i, :, :])
+        # display(discretizedDomain)
+        discretizedDomainVector = discretizedDomain[:, i] |> Array
+        positionSequence        = position[i, :, :] |> Array |> eachcol .|> Vector
+        velocitySequence        = velocity[i, :, :] |> Array |> eachcol .|> Vector
+
+        subSolutionVector[i] = Solution(discretizedDomainVector, positionSequence, velocitySequence)
     end
 
     return subSolutionVector
