@@ -58,7 +58,7 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
     while iteration <= maxIterations || !hasConverged(oldSolution, newSolution; threshold)
         iteration += 1
         oldSolution = newSolution
-        print("Beginning iteration $iteration\r")
+        println("Beginning iteration $iteration")
         # the following loops are disjoint to hopefully take advantage of processor pre-fetching
         # i.e. loop fission
 
@@ -77,6 +77,7 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
             subProblemVector, 
             coarsePropagator.discretization
         )
+        println("Beginning coarse parallel propagation")
         subSolutionCoarseVector = pararealSolution(
             coarsePropagator.propagator, 
             ivp.acceleration, 
@@ -89,6 +90,7 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
             subProblemVector, 
             coarsePropagator.discretization
         )
+        println("Beginning fine parallel propagation")
         subSolutionFineVector = pararealSolution(
             finePropagator.propagator, 
             ivp.acceleration, 
@@ -98,6 +100,7 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
         )
 
         # correction
+        println("Beginning correction")
         correct!(subSolutionFineVector, subSolutionCoarseVector, positionCorrectorVector, velocityCorrectorVector)
 
         # correct root solution
@@ -105,6 +108,7 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
 
         # create new sub problems
         if iteration != initialDiscretization # no need for new subproblems after last iteration
+            println("Updating subproblems")
             updateSubproblems!(subProblemVector, rootSolution, ivp.acceleration)
         end
         newSolution = rootSolution
