@@ -60,30 +60,6 @@ function propagate(ivp :: SecondOrderIVP, propagator :: Propagator) :: Solution
 end
 
 """
-    propagate(solver, acceleration, discretizedDomain, position, velocity) :: Tuple{Vector, Vector, Vector}
-
-Propagates on the device.
-"""
-function propagate(solver, acceleration, discretizedDomain, position, velocity) :: Tuple{Vector, Vector, Vector}
-    discretization = length(discretizedDomain)
-    lowerBound     = discretizedDomain[1]
-    upperBound     = discretizedDomain[end]
-    step           = (upperBound - lowerBound) / discretization
-
-    # define the discretized domain
-    for i in 2:discretization
-        discretizedDomain[i] = lowerBound + (i - 1) * step
-    end
-
-    # position evolution
-    for i in 2:discretization
-        position[i], velocity[i] = solver(position[i - 1], velocity[i - 1], acceleration, step)
-    end
-
-    return discretizedDomain, position, velocity
-end
-
-"""
     propagate(ivp :: SecondOrderIVP, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
 
 Propagate an initial value problem using a given propagation scheme.
