@@ -6,7 +6,7 @@ Initializes host-based arrays for the discretized domains, positions, and veloci
 function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Array, Array}
     solutionCount            = length(subProblemVector)
     sequenceLength     = discretization
-    positionDimension = 3
+    positionDimension = subProblemVector[1].initialPosition |> length
 
     # port domain bounds to an array, THEN put the whole thing on the device
     discretizedDomain = zeros(sequenceLength, solutionCount)
