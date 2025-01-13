@@ -1,27 +1,5 @@
 """
-    kernel!(solver, acceleration, discretizedDomain, position, velocity)
-
-CUDA kernel to propagate the subProblems.
-"""
-function kernel!(solver, acceleration, discretizedDomain, position, velocity)
-    solutionCount = size(discretizedDomain, 2) # number of columns
-    index = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    stride = gridDim().x * blockDim().x
-    # could change below to while loop to avoid StepRangeLength for performance
-    for i = index:stride:length(solutionCount)
-        @inbounds discretizedDomain[:, i], position[:, :, i], velocity[:, :, i] = propagate(
-            solver, 
-            acceleration, 
-            discretizedDomain, 
-            position, 
-            velocity
-        )
-    end
-    return nothing
-end
-
-"""
-    kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Real) :: Vector{Matrix}
+    kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Array, Array}
 
 Initializes host-based arrays for the discretized domains, positions, and velocities.
 """
@@ -49,7 +27,30 @@ function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :
 end
 
 """
-    kernelWrapper(solver, acceleration, discretizedDomain, position, velocity)
+"""
+    kernel!(solver, acceleration, discretizedDomain, position, velocity) :: Nothing
+
+CUDA kernel to propagate the subProblems.
+"""
+function kernel!(solver, acceleration, discretizedDomain, position, velocity) :: Nothing
+    discretization, solutionCount = size(discretizedDomain)
+    index         = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    stride        = gridDim().x * blockDim().x
+    # could change below to while loop to avoid StepRangeLength for performance
+    @views for i = index:stride:solutionCount
+        domainPointVector = discretizedDomain[:, i]
+        lowerBound        = domainPointVector[begin]
+        upperBound        = domainPointVector[end]
+        step              = (upperBound - lowerBound) / discretization
+
+        positionSequence = position[i, :, :]
+        velocitySequence = velocity[i, :, :]
+
+        discretizeKernel!(domainPointVector, step)
+        propagateKernel!(solver, acceleration, domainPointVector, positionSequence, velocitySequence)
+    end
+    return nothing
+end
 
 Optimize hardware usage and execute the kernel.
 """
