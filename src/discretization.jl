@@ -3,8 +3,8 @@
 
 TBW
 """
-function discretize(domain :: Interval, discretization :: Int) :: StepRangeLen
-    return range(domain.lb, domain.ub, discretization + 1)
+function discretize(domain :: Interval, discretization :: Int) :: Vector{Float64}
+    return range(domain.lb, domain.ub, discretization + 1) |> collect
 end
 
 """
