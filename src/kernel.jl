@@ -26,7 +26,7 @@ end
 
 Initializes host-based arrays for the discretized domains, positions, and velocities.
 """
-function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Matrix, Matrix}
+function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Array, Array}
     solutionCount            = length(subProblemVector)
     sequenceLength     = discretization
     positionDimension = 3

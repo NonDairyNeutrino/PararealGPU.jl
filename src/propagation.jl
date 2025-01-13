@@ -17,7 +17,7 @@ struct Solution
     domain           :: Vector         # time vector
     positionSequence :: Vector{Vector} # time vector of space vectors
     velocitySequence :: Vector{Vector} # time vector of space vectors
-    function Solution(domain, positionSequence :: Vector{Vector}, velocitySequence = zeros(length(positionSequence) - 1) :: Vector{Vector})
+    function Solution(domain, positionSequence :: Vector{Vector{T}}, velocitySequence = zeros(length(positionSequence) - 1) :: Vector{Vector{T}}) where T <: Real
         return new(domain, positionSequence, velocitySequence)
     end
 end

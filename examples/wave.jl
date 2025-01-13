@@ -12,7 +12,7 @@ using Plots
 
 Define the acceleration in terms of the given differential equation.
 """
-function acceleration(position :: Vector{Float64}, velocity :: Vector{Float64}) :: Vector{Float64}
+@inline function acceleration(position :: T, velocity :: T) :: T where T
     return -position # this encodes the differential equation u''(t) = -u
 end
 
