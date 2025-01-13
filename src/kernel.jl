@@ -1,4 +1,3 @@
-using CUDA
 """
     kernel!(solver, acceleration, discretizedDomain, position, velocity)
 
