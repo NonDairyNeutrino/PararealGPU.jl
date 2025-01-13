@@ -27,6 +27,36 @@ function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :
 end
 
 """
+    discretizeKernel!(domainPointVector :: T) where T
+
+Fill discretized domain with middle elements.
+"""
+function discretizeKernel!(domainPointVector :: S, step :: T) where {S, T}
+    discretization = length(domainPointVector)
+    lowerBound     = domainPointVector[begin]
+    for i in 2:(discretization - 1)
+        @inbounds domainPointVector[i] = lowerBound + (i - 1) * step
+    end
+    return nothing
+end
+
+"""
+    propagateKernel!(solver :: F, acceleration :: G, step :: H, positionSequence :: J, velocitySequence :: K) :: Nothing where {F, G, H, J, K}
+
+Propagates on the device.
+"""
+function propagateKernel!(solver :: F, acceleration :: G, step :: H, positionSequence :: J, velocitySequence :: K) :: Nothing where {F, G, H, J, K}
+    discretization = size(positionSequence, 3) # number of positions in the sequence
+    @views for i in 2:(discretization - 1)
+        oldPosition = positionSequence[:, i - 1]
+        oldVelocity = velocitySequence[:, i - 1]
+        newPosition = positionSequence[:, i]
+        newVelocity = velocitySequence[:, i]
+        @inbounds newPosition, newVelocity = solver(oldPosition, oldVelocity, acceleration, step)
+    end
+    return nothing
+end
+
 """
     kernel!(solver, acceleration, discretizedDomain, position, velocity) :: Nothing
 
