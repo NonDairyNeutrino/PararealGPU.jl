@@ -18,10 +18,10 @@ function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :
     # where to put stuff
     # arrays should be indexed such that elements are in columns for performance
     position          = zeros(solutionCount, positionDimension, sequenceLength)
-    position[:, :, 1] = getproperty.(subProblemVector, :initialPosition)
+    position[:, :, 1] = getproperty.(subProblemVector, :initialPosition) |> stack
 
     velocity          = zeros(solutionCount, positionDimension, sequenceLength)
-    velocity[:, :, 1] = getproperty.(subProblemVector, :initialVelocity)
+    velocity[:, :, 1] = getproperty.(subProblemVector, :initialVelocity) |> stack
 
     return discretizedDomain, position, velocity
 end
