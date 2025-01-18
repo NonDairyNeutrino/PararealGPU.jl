@@ -1,4 +1,0 @@
-Things that need to be done
-
-1. Finish @adapt-ing CUDA code
-
