@@ -1,4 +1,5 @@
 # distributed functionality for PararealGPU.jl
+using Distributed
 
 #= 
 The main idea is to:
@@ -15,3 +16,12 @@ on pid1
 6. 
     solutionVector = pmap(ivp -> parareal(...), ivpVector)
 =#
+
+# get list of hosts
+remoteHostVector = String["Electromagnetism"]
+addprocs(remoteHostVector)
+
+@everywhere using CUDA
+
+# get list of devices on each host
+pmap(_ -> (CUDA.devices() |> length), workers()) |> display
