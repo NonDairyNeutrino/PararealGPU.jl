@@ -24,4 +24,6 @@ addprocs(remoteHostVector)
 @everywhere using CUDA
 
 # get list of devices on each host
-pmap(_ -> (CUDA.devices() |> length), workers()) |> display
+hostDeviceCountVector = pmap(_ -> (gethostname(), CUDA.devices() |> length), workers())
+hdcVector = hostDeviceCountVector # just an alias
+display(hdcVector)
