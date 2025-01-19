@@ -20,7 +20,8 @@ on pid1
 # get list of hosts
 localHost        = gethostname()
 remoteHostVector = String["Electromagnetism"]
-addprocs(remoteHostVector)
+# addprocs(1)                # create a worker process on the local host
+addprocs(remoteHostVector) # create a worker process on each of remote hosts
 
 @everywhere using CUDA
 
