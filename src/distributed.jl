@@ -30,3 +30,13 @@ display(hdcVector)
 
 # spawn processes on remote hosts for each device
 addprocs(hdcVector)
+
+# distributed context to each process
+@everywhere begin
+    include("PararealGPU.jl")
+    using .PararealGPU
+    function acceleration(position :: Float64, velocity :: Float64, k = 1) :: Float64
+        return -k^2 * position # this encodes the differential equation u''(t) = -u
+    end
+end
+
