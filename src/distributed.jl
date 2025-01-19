@@ -18,6 +18,7 @@ on pid1
 =#
 
 # get list of hosts
+localHost        = gethostname()
 remoteHostVector = String["Electromagnetism"]
 addprocs(remoteHostVector)
 
