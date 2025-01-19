@@ -27,3 +27,6 @@ addprocs(remoteHostVector)
 hostDeviceCountVector = pmap(_ -> (gethostname(), CUDA.devices() |> length), workers())
 hdcVector = hostDeviceCountVector # just an alias
 display(hdcVector)
+
+# spawn processes on remote hosts for each device
+addprocs(hdcVector)
