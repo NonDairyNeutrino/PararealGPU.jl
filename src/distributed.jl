@@ -1,5 +1,5 @@
 # distributed functionality for PararealGPU.jl
-using Distributed
+using Distributed, DistributedEnvironments
 
 #= 
 The main idea is to:
@@ -19,7 +19,9 @@ on pid1
 
 # get list of hosts
 localHost        = gethostname()
-remoteHostVector = String["Electromagnetism"]
+remoteHostVector = String["Electromagnetism"#= , "Gravity" =#]
+@initcluster remoteHostVector
+
 # addprocs(1)                # create a worker process on the local host
 addprocs(remoteHostVector) # create a worker process on each of remote hosts
 
@@ -33,12 +35,15 @@ display(hdcVector)
 # spawn processes on remote hosts for each device
 addprocs(hdcVector)
 
+@everywhere println("This is a message from machine ", gethostname(), " on process ", myid())
+
 # distributed context to each process
 @everywhere begin
     include("PararealGPU.jl")
     using .PararealGPU
-    function acceleration(position :: Float64, velocity :: Float64, k = 1) :: Float64
+    function acceleration(position :: Vector{T}, velocity :: Vector{T}, k :: T = 1) :: Vector{T} where T <: Real
         return -k^2 * position # this encodes the differential equation u''(t) = -u
     end
 end
 
+@everywhere names(PararealGPU)
