@@ -18,7 +18,8 @@ on pid1
     solutionVector = pmap(ivp -> parareal(...), ivpVector)
 =#
 struct Host
-    name      :: String# or Vector{CuDevice} for slight performance increase
+    name      :: String
+    pidVector :: Vector{Int}
     devVector :: Vector{Int} # or Vector{CuDevice} for slight performance increase
 end
 
