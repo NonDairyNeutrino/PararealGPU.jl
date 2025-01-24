@@ -38,7 +38,7 @@ hostVector = similar(subMasterVector, Host)
 for i in eachindex(hostVector)
     name          = remoteHostNameVector[i]
     pidVector     = procs(subMasterVector[i]) # all pids on same machine as subMasterVector[i]
-    devVector     = 1:hdcVector[i][2] |> collect
+    devVector     = 0:hdcVector[i][2]-1 |> collect # devices are indexed at 0
     hostVector[i] = Host(name, pidVector, devVector)
 end
 
