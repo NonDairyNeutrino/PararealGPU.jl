@@ -26,8 +26,15 @@ struct Host
         return new(name, pidVector[1], pidVector[2:end], devVector)
     end
 end
+function Base.show(io :: IO, host :: Host)
+    println(io, "Host: ", host.name)
+    println(io, "Master: ", host.master)
+    println(io, "Workers: ", host.workerVector)
+    println(io, "Devices: ", host.devVector)
+end
 
 remoteHostNameVector = String["Electromagnetism"]
+println("Beginning with remote hosts: ", remoteHostNameVector)
 # create a worker process on each of remote hosts
 subMasterVector = addprocs(remoteHostNameVector) # TODO: port to use topology=:master_worker
 
@@ -45,17 +52,19 @@ for i in eachindex(hostVector)
     devVector     = 0:hdcVector[i][2]-1 |> collect # devices are indexed at 0
     hostVector[i] = Host(name, pidVector, devVector)
 end
+println("The following hosts, procs, workers, and devices have been automatically recognized.")
+display(hostVector)
 
 # distributed context to each processworkers
 # @everywhere println("Loading from current directory: ", pwd())
 @everywhere include("PararealGPU.jl")
 @everywhere using .PararealGPU
-# println("PararealGPU.jl successfully loaded on all processes.")
+println("PararealGPU.jl successfully loaded on all processes.")
 
 @everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
     return -k^2 * position # this encodes the differential equation u''(t) = -u
 end
-# println("acceleration loaded on all processes.")
+println("acceleration loaded on all processes.")
 
 #= 
 assign device to each process
@@ -75,17 +84,19 @@ device 1 on host Y to pid 4,
 etc.
 =#
 # begin loop on master process
+println("Beginning device assignment.")
 for host in hostVector
     name      = host.name
     workerVector = host.workerVector
     devVector = host.devVector
     for (worker, dev) in zip(workerVector, devVector)
-        println("assigning device $dev to process $worker on host $name")
+        println("      assigning device $dev to process $worker on host $name")
         # assign device to process pid
         remote_do(device!, worker, dev) # no fetch because device! returns nothing
     end
 end
 
-@everywhere workers() println("proc ", myid(), " has device ", device(), " on host ", gethostname())
+println("Confirming device assignemnt.")
+@everywhere workers() println("proc ", myid(), " has device ", deviceid(device()), " on host ", gethostname())
 
-procs()[2:end] |> rmprocs
+rmprocs(workers())
