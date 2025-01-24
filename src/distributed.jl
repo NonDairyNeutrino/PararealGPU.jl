@@ -48,7 +48,7 @@ end
 # println("PararealGPU.jl successfully loaded on all processes.")
 
 @everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
-        return -k^2 * position # this encodes the differential equation u''(t) = -u
+    return -k^2 * position # this encodes the differential equation u''(t) = -u
 end
 # println("acceleration loaded on all processes.")
 
@@ -77,7 +77,7 @@ for host in hostVector
     println("assigning device $dev to process $pid on host ", host.name)
     # spawn and fetch task to assign device to process pid
     remote_do(device!, pid, dev)
-    end
+  end
 end
 
 procs()[2:end] |> rmprocs
