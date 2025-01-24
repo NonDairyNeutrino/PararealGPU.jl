@@ -40,12 +40,16 @@ for i in eachindex(hostVector)
     hostVector[i] = Host(name, pidVector, devVector)
 end
 
-# distributed context to each process
-@everywhere begin
-    include("PararealGPU.jl")
-    using .PararealGPU
-    function acceleration(position :: Vector{T}, velocity :: Vector{T}, k :: T = 1) :: Vector{T} where T <: Real
+# distributed context to each processworkers
+# @everywhere println("Loading from current directory: ", pwd())
+@everywhere include("PararealGPU.jl")
+@everywhere using .PararealGPU
+# println("PararealGPU.jl successfully loaded on all processes.")
+
+@everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
         return -k^2 * position # this encodes the differential equation u''(t) = -u
+end
+# println("acceleration loaded on all processes.")
     end
 end
 
