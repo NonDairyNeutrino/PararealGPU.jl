@@ -7,6 +7,7 @@ on pid1
 1. get list of hosts
 2. get list of devices on each host
 3. spawn processes on each host for each device pid2-pidND
+4. assign a device to each process
 4. @everywhere begin
     include(PararealGPU.jl)
     using .Parareal
@@ -79,4 +80,4 @@ for host in hostVector
     end
 end
 
-@everywhere names(PararealGPU)
+procs()[2:end] |> rmprocs
