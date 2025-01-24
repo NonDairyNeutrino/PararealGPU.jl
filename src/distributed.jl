@@ -1,5 +1,5 @@
 # distributed functionality for PararealGPU.jl
-using Distributed, DistributedEnvironments
+using Distributed
 
 #= 
 The main idea is to:
