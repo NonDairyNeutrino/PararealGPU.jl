@@ -16,26 +16,29 @@ on pid1
 6. 
     solutionVector = pmap(ivp -> parareal(...), ivpVector)
 =#
+struct Host
+    name      :: String# or Vector{CuDevice} for slight performance increase
+    devVector :: Vector{Int} # or Vector{CuDevice} for slight performance increase
+end
 
-# get list of hosts
-localHost        = gethostname()
-remoteHostVector = String["Electromagnetism"#= , "Gravity" =#]
-@initcluster remoteHostVector
+remoteHostNameVector = String["Electromagnetism"]
+# create a worker process on each of remote hosts
+subMasterVector = addprocs(remoteHostNameVector) # TODO: port to use topology=:master_worker
 
-# addprocs(1)                # create a worker process on the local host
-addprocs(remoteHostVector) # create a worker process on each of remote hosts
-
-@everywhere using CUDA
-
-# get list of devices on each host
-hostDeviceCountVector = pmap(_ -> (gethostname(), CUDA.devices() |> length), workers())
-hdcVector = hostDeviceCountVector # just an alias
-display(hdcVector)
-
+@everywhere using CUDA # load CUDA module on each process including master
+# hostDeviceCountVector
+hdcVector = pmap(_ -> (gethostname(), ndevices()), subMasterVector) # evals only on workers
 # spawn processes on remote hosts for each device
 addprocs(hdcVector)
+@everywhere using CUDA
 
-@everywhere println("This is a message from machine ", gethostname(), " on process ", myid())
+hostVector = similar(subMasterVector, Host)
+for i in eachindex(hostVector)
+    name          = remoteHostNameVector[i]
+    pidVector     = procs(subMasterVector[i]) # all pids on same machine as subMasterVector[i]
+    devVector     = 1:hdcVector[i][2] |> collect
+    hostVector[i] = Host(name, pidVector, devVector)
+end
 
 # distributed context to each process
 @everywhere begin
