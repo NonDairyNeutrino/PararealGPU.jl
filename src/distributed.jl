@@ -72,13 +72,16 @@ etc.
 =#
 # begin loop on master process
 for host in hostVector
-  pidVector = host.pidVector[2:end]
-  devVector = host.devVector
-  for (pid, dev) in zip(pidVector, devVector)
-    println("assigning device $dev to process $pid on host ", host.name)
-    # spawn and fetch task to assign device to process pid
-    remote_do(device!, pid, dev)
-  end
+    name      = host.name
+    pidVector = host.pidVector[2:end]
+    devVector = host.devVector
+    for (pid, dev) in zip(pidVector, devVector)
+        println("assigning device $dev to process $pid on host $name")
+        # assign device to process pid
+        remote_do(device!, pid, dev) # no fetch because device! returns nothing
+    end
 end
+
+@everywhere workers() println("proc ", myid(), " has device ", device(), " on host ", gethostname())
 
 procs()[2:end] |> rmprocs
