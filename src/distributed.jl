@@ -19,8 +19,12 @@ on pid1
 =#
 struct Host
     name      :: String
-    pidVector :: Vector{Int}
+    master    :: Int
+    workerVector :: Vector{Int}
     devVector :: Vector{Int} # or Vector{CuDevice} for slight performance increase
+    function Host(name, pidVector, devVector)
+        return new(name, pidVector[1], pidVector[2:end], devVector)
+    end
 end
 
 remoteHostNameVector = String["Electromagnetism"]
@@ -73,12 +77,12 @@ etc.
 # begin loop on master process
 for host in hostVector
     name      = host.name
-    pidVector = host.pidVector[2:end]
+    workerVector = host.workerVector
     devVector = host.devVector
-    for (pid, dev) in zip(pidVector, devVector)
-        println("assigning device $dev to process $pid on host $name")
+    for (worker, dev) in zip(workerVector, devVector)
+        println("assigning device $dev to process $worker on host $name")
         # assign device to process pid
-        remote_do(device!, pid, dev) # no fetch because device! returns nothing
+        remote_do(device!, worker, dev) # no fetch because device! returns nothing
     end
 end
 
