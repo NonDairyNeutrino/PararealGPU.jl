@@ -120,9 +120,10 @@ end
 
 Show which device each process has for use.
 """
-function showDeviceAssignments()
+function showDeviceAssignments() :: Nothing
     println("Confirming device assignemnt.")
     @everywhere workers() println("proc ", myid(), " has device ", deviceid(device()), " on host ", gethostname())
+    return nothing
 end
 
 rmprocs(workers())
