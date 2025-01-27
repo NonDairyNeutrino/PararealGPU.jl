@@ -143,4 +143,10 @@ end
 remoteHostNameVector = String["Electromagnetism"]
 prepCluster(remoteHostNameVector)
 
+# distributed context to each processworkers
+# @everywhere println("Loading from current directory: ", pwd())
+@everywhere include("PararealGPU.jl")
+@everywhere using .PararealGPU
+println("PararealGPU.jl successfully loaded on all processes.")
+
 rmprocs(workers())
