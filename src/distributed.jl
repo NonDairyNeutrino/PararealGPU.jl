@@ -27,10 +27,10 @@ struct Host
     end
 end
 function Base.show(io :: IO, host :: Host)
-    println(io, "Host: ", host.name)
-    println(io, "Master: ", host.master)
+    println(io, "Host:   ", host.name)
+    println(io, "Master:  ", host.master)
     println(io, "Workers: ", host.workerVector)
-    println(io, "Devices: ", host.devVector)
+    println(io, "Devices: ", host.devCount)
 end
 
 remoteHostNameVector = String["Electromagnetism"]
