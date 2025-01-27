@@ -21,7 +21,7 @@ struct Host
     name      :: String
     master    :: Int
     workerVector :: Vector{Int}
-    devVector :: Vector{Int} # or Vector{CuDevice} for slight performance increase
+    devCount :: Int # or Vector{CuDevice} for slight performance increase
     function Host(name, pidVector, devVector)
         return new(name, pidVector[1], pidVector[2:end], devVector)
     end
