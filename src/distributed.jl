@@ -45,6 +45,20 @@ function spawnManagers(remoteHostNameVector :: Vector{String}) :: Vector{Int}
     return managerVector
 end
 
+"""
+    spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}}
+
+Spawn worker processes that will control device usage.
+"""
+function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}}
+    @eval @everywhere using CUDA # load CUDA module on each process including master
+    # hostDeviceCountVector
+    hdcVector = pmap(_ -> (gethostname(), ndevices()), managerVector) # evals only on workers
+    # spawn processes on remote hosts for each device
+    addprocs(hdcVector)
+    return hdcVector
+end
+
 desired result:
 device 1 on host X to pid 2, 
 device 2 on host X to pid 3, 
