@@ -77,26 +77,42 @@ function createHostVector(remoteHostNameVector :: Vector{String}, managerVector 
     return hostVector
 end
 
-desired result:
-device 1 on host X to pid 2, 
-device 2 on host X to pid 3, 
-device 1 on host Y to pid 4, 
-etc.
-=#
-# begin loop on master process
-println("Beginning device assignment.")
-for host in hostVector
-    name      = host.name
-    workerVector = host.workerVector
-    devVector = host.devVector
-    for (worker, dev) in zip(workerVector, devVector)
-        println("      assigning device $dev to process $worker on host $name")
-        # assign device to process pid
-        remote_do(device!, worker, dev) # no fetch because device! returns nothing
-    end
-end
+"""
+    assignDevices!(hostVector :: Vector{Host}) :: Nothing
 
-println("Confirming device assignemnt.")
-@everywhere workers() println("proc ", myid(), " has device ", deviceid(device()), " on host ", gethostname())
+Assign each device to a worker process on the same host.
+"""
+function assignDevices!(hostVector :: Vector{Host}) :: Nothing
+    #= 
+    assign device to each process
+    - master process (pid 1) which spawns and assigns ids to worker processes on remote hosts
+    (one for each device each host).  Each worker process knows its own id.
+    - So each host can have multiple worker processes 
+    e.g host X has pids 2, 3, and host Y has pids 4, 5, 6
+    - Then each process knows the devices (gpus) available to that _host_, but each device has its own
+    id _relative to the host_ e.g 
+    host X has pids 2, 3 and devices 1, 2, and 
+    host Y has pids 4, 5, 6 and devices 1, 2, 3
+
+    desired result:
+    device 1 on host X to pid 2, 
+    device 2 on host X to pid 3, 
+    device 1 on host Y to pid 4, 
+    etc.
+    =#
+    println("Beginning device assignment.")
+    @eval @everywhere using CUDA
+    for host in hostVector
+        name         = host.name
+        workerVector = host.workerVector
+        devIDVector  = 0:host.devCount-1
+        for (worker, dev) in zip(workerVector, devIDVector)
+            println("      assigning device $dev to process $worker on host $name")
+            # assign device to process pid
+            remote_do(device!, worker, dev)
+        end
+    end
+    return nothing
+end
 
 rmprocs(workers())
