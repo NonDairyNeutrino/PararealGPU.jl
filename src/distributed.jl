@@ -140,4 +140,7 @@ function prepCluster(remoteHostNameVector :: Vector{String})
     showDeviceAssignments()
 end
 
+remoteHostNameVector = String["Electromagnetism"]
+prepCluster(remoteHostNameVector)
+
 rmprocs(workers())
