@@ -59,6 +59,24 @@ function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}
     return hdcVector
 end
 
+"""
+    createHostVector(remoteHostNameVector :: Vector{String}, managerVector :: Vector{Int}, devCountVector :: Vector{Int})
+
+Bundle the process IDs with the number of devices on each remote host.
+"""
+function createHostVector(remoteHostNameVector :: Vector{String}, managerVector :: Vector{Int}, devCountVector :: Vector{Int})
+    hostVector = similar(managerVector, Host)
+    for i in eachindex(hostVector)
+        name          = remoteHostNameVector[i]
+        pidVector     = procs(managerVector[i]) # all pids on same machine as subMasterVector[i]
+        devCount      = devCountVector[i] # devices are indexed at 0
+        hostVector[i] = Host(name, pidVector, devCount)
+    end
+    println("The following hosts, procs, workers, and devices have been automatically recognized.")
+    display(hostVector)
+    return hostVector
+end
+
 desired result:
 device 1 on host X to pid 2, 
 device 2 on host X to pid 3, 
