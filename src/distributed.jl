@@ -149,4 +149,9 @@ prepCluster(remoteHostNameVector)
 @everywhere using .PararealGPU
 println("PararealGPU.jl successfully loaded on all processes.")
 
+@everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
+    return -k^2 * position # this encodes the differential equation u''(t) = -u
+end
+println("acceleration loaded on all processes.")
+
 rmprocs(workers())
