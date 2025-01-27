@@ -115,4 +115,14 @@ function assignDevices!(hostVector :: Vector{Host}) :: Nothing
     return nothing
 end
 
+"""
+    showDeviceAssignments()
+
+Show which device each process has for use.
+"""
+function showDeviceAssignments()
+    println("Confirming device assignemnt.")
+    @everywhere workers() println("proc ", myid(), " has device ", deviceid(device()), " on host ", gethostname())
+end
+
 rmprocs(workers())
