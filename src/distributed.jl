@@ -126,4 +126,18 @@ function showDeviceAssignments() :: Nothing
     return nothing
 end
 
+"""
+    prepCluster(remoteHostNameVector :: Vector{String})
+
+TBW
+"""
+function prepCluster(remoteHostNameVector :: Vector{String})
+    managerVector  = spawnManagers(remoteHostNameVector)
+    hdcVector      = spawnWorkers(managerVector)
+    devCountVector = getindex.(hdcVector, 2)
+    hostVector     = createHostVector(remoteHostNameVector, managerVector, devCountVector)
+    assignDevices!(hostVector)
+    showDeviceAssignments()
+end
+
 rmprocs(workers())
