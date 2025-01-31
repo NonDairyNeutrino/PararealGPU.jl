@@ -1,6 +1,4 @@
 # distributed functionality for PararealGPU.jl
-using Distributed
-
 #= 
 The main idea is to:
 on pid1
@@ -149,18 +147,3 @@ function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int})
     showDeviceAssignments()
 end
 
-remoteHostNameVector = String["Electromagnetism"]
-prepCluster(remoteHostNameVector)
-
-# distributed context to each processworkers
-# @everywhere println("Loading from current directory: ", pwd())
-@everywhere include("PararealGPU.jl")
-@everywhere using .PararealGPU
-println("PararealGPU.jl successfully loaded on all processes.")
-
-@everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
-    return -k^2 * position # this encodes the differential equation u''(t) = -u
-end
-println("acceleration loaded on all processes.")
-
-rmprocs(workers())
