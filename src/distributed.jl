@@ -148,12 +148,13 @@ end
 
 TBW
 """
-function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int})
+function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Vector{Vector{Int}}
     managerVector  = spawnManagers(remoteHostNameVector)
     hdcVector      = spawnWorkers(managerVector)
     devCountVector = getindex.(hdcVector, 2)
     hostVector     = createHostVector(remoteHostNameVector, managerVector, devCountVector)
     assignDevices!(hostVector)
     showDeviceAssignments()
+    return getproperty.(hostVector, workerVector)
 end
 
