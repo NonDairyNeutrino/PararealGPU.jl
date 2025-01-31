@@ -6,30 +6,28 @@ include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
 const nodeVector = String["Electromagnetism"]
 prepCluster(nodeVector)
-# prepCluster(1)
 
-# # distributed context to each workers
-# @everywhere workers() println("The current working directory on process ", myid(), " is ", pwd())
-# @everywhere include("$(pwd())/src/PararealGPU.jl")
-# @everywhere using .PararealGPU
-# println("PararealGPU.jl successfully loaded on all processes.")
+# DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
+const INITIALDISCRETIZATION = Threads.nthreads()
+const COARSEPROPAGATOR      = Propagator(symplecticEuler, INITIALDISCRETIZATION)
+const FINEPROPAGATOR        = Propagator(velocityVerlet,  2^1 * INITIALDISCRETIZATION)
 
-# # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
-# const INITIALDISCRETIZATION        = Threads.nthreads()
-# const COARSEPROPAGATOR = Propagator(symplecticEuler, INITIALDISCRETIZATION)
-# const FINEPROPAGATOR   = Propagator(velocityVerlet,  2^1 * INITIALDISCRETIZATION)
+@everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
+    return -k^2 * position # this encodes the differential equation u''(t) = -u
+end
+const INITIALPOSITION = [0.]
+const INITIALVELOCITY = [1.]
+const DOMAIN          = Interval(0., 2^2 * pi)
+const IVP             = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY) # second order initial value problem
 
-# @everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
-#     return -k^2 * position # this encodes the differential equation u''(t) = -u
+pmap(_ -> "This message brought to you by process $(myid())", 1:4)
+
+# ivpVector = 
+# for k in 1:nworkers()
+#     ivpVector[k] = SecondOrderIVP(DOMAIN, (x, v) -> acceleration(x, v; k), INITIALPOSITION, INITIALVELOCITY)
 # end
-# const INITIALPOSITION = [0.]
-# const INITIALVELOCITY = [1.]
-# const DOMAIN         = Interval(0., 2^2 * pi)
-# # const IVP      = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY) # second order initial value problem
 
-# ivpVector = [SecondOrderIVP(DOMAIN, (x, v) -> acceleration(x, v; k), INITIALPOSITION, INITIALVELOCITY) for k in 1:nworkers()]
-
-# solutionVector = pmap(ivp -> parareal(ivp, COARSEPROPAGATOR, FINEPROPAGATOR))
+# solutionVector = pmap(ivp -> parareal(ivp, COARSEPROPAGATOR, FINEPROPAGATOR), ivpVector)
 
 # plot(
 #     rootSolution.domain,
