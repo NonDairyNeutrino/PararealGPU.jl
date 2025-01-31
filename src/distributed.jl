@@ -20,8 +20,8 @@ struct Host
     master    :: Int
     workerVector :: Vector{Int}
     devCount :: Int # or Vector{CuDevice} for slight performance increase
-    function Host(name, pidVector, devVector)
-        return new(name, pidVector[1], pidVector[2:end], devVector)
+    function Host(name, pidVector, devCount)
+        return new(name, pidVector[1], pidVector[2:end], devCount)
     end
 end
 function Base.show(io :: IO, host :: Host)
