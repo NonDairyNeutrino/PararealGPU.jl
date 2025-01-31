@@ -65,8 +65,13 @@ function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}
     println("Getting number of devices on each host")
     hdcVector = pmap(getHDC, managerVector) # evals only on workers
     # spawn processes on remote hosts for each device
-    println("spawning processes for each device.")
-    addprocs(hdcVector)
+    println("Spawning processes for each device.")
+    deviceWorkers = addprocs(hdcVector)
+
+    println("Loading PararealGPU on each worker process")
+    @eval @everywhere $deviceWorkers include("$(pwd())/src/PararealGPU.jl")
+    @eval @everywhere $deviceWorkers using .PararealGPU
+    println("PararealGPU loaded on all worker processes.")
     return hdcVector
 end
 
