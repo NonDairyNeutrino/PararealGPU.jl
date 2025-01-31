@@ -40,9 +40,11 @@ function spawnManagers(remoteHostNameVector :: Union{Vector{String}, Int}) :: Ve
     println("Beginning with remote hosts: ", remoteHostNameVector)
     # create a worker process on each of remote hosts
     managerVector = addprocs(remoteHostNameVector) # TODO: port to use topology=:master_worker
+
+    println("Loading PararealGPU.jl on all manager processes")
     @eval @everywhere workers() include("$(pwd())/src/PararealGPU.jl")
     @eval @everywhere workers() using .PararealGPU
-    println("PararealGPU.jl loaded on all processes")
+    println("PararealGPU.jl loaded on all manager processes")
     return managerVector
 end
 
@@ -55,11 +57,13 @@ getHDC(_) = getHDC()
 Spawn worker processes that will control device usage.
 """
 function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}}
+    println("Loading CUDA on all manager processes")
     @eval @everywhere workers() using CUDA # load CUDA module on each process including master
-    println("CUDA loaded on all processes")
+    println("CUDA loaded on all manager processes")
+
     # hostDeviceCountVector
+    println("Getting number of devices on each host")
     hdcVector = pmap(getHDC, managerVector) # evals only on workers
-    display(hdcVector)
     # spawn processes on remote hosts for each device
     println("spawning processes for each device.")
     addprocs(hdcVector)
@@ -72,6 +76,7 @@ end
 Bundle the process IDs with the number of devices on each remote host.
 """
 function createHostVector(remoteHostNameVector :: Vector{String}, managerVector :: Vector{Int}, devCountVector :: Vector{Int})
+    println("Collecting hosts, processes, and device counts")
     hostVector = similar(managerVector, Host)
     for i in eachindex(hostVector)
         name          = remoteHostNameVector[i]
@@ -107,14 +112,14 @@ function assignDevices!(hostVector :: Vector{Host}) :: Nothing
     device 1 on host Y to pid 4, 
     etc.
     =#
-    println("Beginning device assignment.")
+    println("Assigning devices to processes")
     @eval @everywhere using CUDA
     for host in hostVector
         name         = host.name
         workerVector = host.workerVector
         devIDVector  = 0:host.devCount-1
         for (worker, dev) in zip(workerVector, devIDVector)
-            println("      assigning device $dev to process $worker on host $name")
+            println("      Assigning device $dev to process $worker on host $name")
             # assign device to process pid
             remote_do(device!, worker, dev)
         end
@@ -128,7 +133,7 @@ end
 Show which device each process has for use.
 """
 function showDeviceAssignments() :: Nothing
-    println("Confirming device assignemnt.")
+    println("Confirming device assignemnt")
     @everywhere workers() println("proc ", myid(), " has device ", deviceid(device()), " on host ", gethostname())
     return nothing
 end
