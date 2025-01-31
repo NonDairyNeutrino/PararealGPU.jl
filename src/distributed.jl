@@ -57,11 +57,13 @@ getHDC(_) = getHDC()
 Spawn worker processes that will control device usage.
 """
 function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}}
-    @eval @everywhere using CUDA # load CUDA module on each process including master
+    @eval @everywhere workers() using CUDA # load CUDA module on each process including master
+    println("CUDA loaded on all processes")
     # hostDeviceCountVector
     hdcVector = pmap(getHDC, managerVector) # evals only on workers
     display(hdcVector)
     # spawn processes on remote hosts for each device
+    println("spawning processes for each device.")
     addprocs(hdcVector)
     return hdcVector
 end
