@@ -6,11 +6,13 @@ module PararealGPU
 export euler, symplecticEuler, velocityVerlet  # integration.jl
 export Interval, FirstOrderIVP, SecondOrderIVP # ivp.jl
 export Propagator
+export prepCluster, getHDC                             # distributed.jl
 export parareal                                # Parareal.jl
 
 using CUDA
 # using Adapt: @adapt_structure
 using LinearAlgebra: norm
+using Distributed
 
 include("ivp.jl")
 include("discretization.jl")
@@ -20,6 +22,7 @@ include("integration.jl")
 include("correction.jl")
 include("convergence.jl")
 include("kernel.jl")
+include("distributed.jl")
 
 """
     parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator)
