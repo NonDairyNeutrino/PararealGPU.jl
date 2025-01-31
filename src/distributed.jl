@@ -42,6 +42,9 @@ function spawnManagers(remoteHostNameVector :: Vector{String}) :: Vector{Int}
     println("Beginning with remote hosts: ", remoteHostNameVector)
     # create a worker process on each of remote hosts
     managerVector = addprocs(remoteHostNameVector) # TODO: port to use topology=:master_worker
+    @eval @everywhere workers() include("$(pwd())/src/PararealGPU.jl")
+    @eval @everywhere workers() using .PararealGPU
+    println("PararealGPU.jl loaded on all processes")
     return managerVector
 end
 
