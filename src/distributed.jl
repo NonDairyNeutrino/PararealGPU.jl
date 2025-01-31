@@ -38,7 +38,7 @@ end
 
 Spawn manager processes on each remote host.
 """
-function spawnManagers(remoteHostNameVector :: Vector{String}) :: Vector{Int}
+function spawnManagers(remoteHostNameVector :: Union{Vector{String}, Int}) :: Vector{Int}
     println("Beginning with remote hosts: ", remoteHostNameVector)
     # create a worker process on each of remote hosts
     managerVector = addprocs(remoteHostNameVector) # TODO: port to use topology=:master_worker
@@ -134,7 +134,7 @@ end
 
 TBW
 """
-function prepCluster(remoteHostNameVector :: Vector{String})
+function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int})
     managerVector  = spawnManagers(remoteHostNameVector)
     hdcVector      = spawnWorkers(managerVector)
     devCountVector = getindex.(hdcVector, 2)
