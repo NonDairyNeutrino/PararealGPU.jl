@@ -144,11 +144,11 @@ function showDeviceAssignments() :: Nothing
 end
 
 """
-    prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Nothing
+    prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: CachingPool
 
 Prepare a cluster and return a pool of device processes.
 """
-function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Nothing
+function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: CachingPool
     managerVector  = spawnManagers(remoteHostNameVector)
     hdcVector      = spawnWorkers(managerVector)
     devCountVector = getindex.(hdcVector, 2)
@@ -157,7 +157,7 @@ function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Noth
     showDeviceAssignments()
 
     workerIDVector = getproperty.(hostVector, :workerVector) |> Iterators.flatten |> collect
-    workerIDVector |> WorkerPool |> Distributed.default_worker_pool!
-    return 
+    return workerIDVector |> CachingPool
+    # return 
 end
 
