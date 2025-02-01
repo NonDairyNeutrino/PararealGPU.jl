@@ -34,8 +34,8 @@ for (k, rootSolution) in enumerate(solutionVector)
     plot!(
         rootSolution.domain,
         [rootSolution.positionSequence .|> first, rootSolution.velocitySequence .|> first],
-        label = ["position" "velocity"],
-        title = "k = $k"
+        label = ["position - $k" "velocity - $k"],
+        title = "discretization: $INITIALDISCRETIZATION    k <= $k"
     )
 end
 println("Plot saved at ", pwd(), "/cos.png")
