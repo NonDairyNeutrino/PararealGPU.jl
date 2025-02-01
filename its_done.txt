@@ -1,0 +1,277 @@
+Activating project at `~/research/PararealGPU.jl`
+Beginning with remote hosts: ["Electromagnetism"]
+Loading PararealGPU.jl on all manager processes
+PararealGPU.jl loaded on all manager processes
+Loading CUDA on all manager processes
+CUDA loaded on all manager processes
+Getting number of devices on each host
+Spawning processes for each device.
+Loading PararealGPU on each worker process
+PararealGPU loaded on all worker processes.
+Collecting hosts, processes, and device counts
+The following hosts, procs, workers, and devices have been automatically recognized.
+1-element Vector{Main.PararealGPU.Host}:
+ Host:   Electromagnetism
+Master:  2
+Workers: [3, 4]
+Devices: 2
+
+Assigning devices to processes
+      Assigning device 0 to process 3 on host Electromagnetism
+      Assigning device 1 to process 4 on host Electromagnetism
+Confirming device assignemnt
+      From worker 2:    proc 2 has device 0 on host Electromagnetism
+      From worker 3:    proc 3 has device 0 on host Electromagnetism
+Creating initial value problems
+      From worker 4:    proc 4 has device 1 on host Electromagnetism
+Beginning parareal evaluation on workers
+      From worker 3:    Beginning iteration 1
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 4:    Beginning iteration 1
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 2
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 3
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 4
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 5
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 6
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 7
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 8
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 9
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 10
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 11
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 12
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 13
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 14
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 15
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 16
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 17
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 18
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 19
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 20
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 21
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 22
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 23
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 3:    Beginning iteration 24
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Beginning iteration 25
+      From worker 3:    Beginning coarse parallel propagation
+      From worker 3:    Beginning fine parallel propagation
+      From worker 3:    Beginning correction
+      From worker 3:    Updating subproblems
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 2
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 3
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 4
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 5
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 6
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 7
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 8
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 9
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 10
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 11
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 12
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 13
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 14
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 15
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 16
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 17
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 18
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 19
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 20
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 21
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 22
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 23
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+      From worker 4:    Beginning iteration 24
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Beginning iteration 25
+      From worker 4:    Beginning coarse parallel propagation
+      From worker 4:    Beginning fine parallel propagation
+      From worker 4:    Beginning correction
+      From worker 4:    Updating subproblems
+Parareal evaluation finished
+Plot saved at /home/nondairyneutrino/research/PararealGPU.jlcos.png

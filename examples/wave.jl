@@ -5,34 +5,38 @@ using Plots
 include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
 const nodeVector = String["Electromagnetism"]
-prepCluster(nodeVector)
+devPool = prepCluster(nodeVector)
 
+println("Creating initial value problems")
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
 const INITIALDISCRETIZATION = Threads.nthreads()
 const COARSEPROPAGATOR      = Propagator(symplecticEuler, INITIALDISCRETIZATION)
-const FINEPROPAGATOR        = Propagator(velocityVerlet,  2^1 * INITIALDISCRETIZATION)
+const FINEPROPAGATOR        = Propagator(velocityVerlet,  2^0 * INITIALDISCRETIZATION)
 
-@everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}, k = 1) :: Vector{T} where T <: Real
+@everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}; k = 1) :: Vector{T} where T <: Real
     return -k^2 * position # this encodes the differential equation u''(t) = -u
 end
 const INITIALPOSITION = [0.]
 const INITIALVELOCITY = [1.]
 const DOMAIN          = Interval(0., 2^2 * pi)
-const IVP             = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY) # second order initial value problem
+# const IVP             = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY) # second order initial value problem
 
-pmap(_ -> "This message brought to you by process $(myid())", 1:4)
+ivpVector = Vector{SecondOrderIVP}(undef, length(devPool))
+for k in 1:length(devPool)
+    ivpVector[k] = SecondOrderIVP(DOMAIN, (x, v) -> acceleration(x, v; k), INITIALPOSITION, INITIALVELOCITY)
+end
 
-# ivpVector = 
-# for k in 1:nworkers()
-#     ivpVector[k] = SecondOrderIVP(DOMAIN, (x, v) -> acceleration(x, v; k), INITIALPOSITION, INITIALVELOCITY)
-# end
+println("Beginning parareal evaluation on workers")
+solutionVector = pmap(ivp -> parareal(ivp, COARSEPROPAGATOR, FINEPROPAGATOR), devPool, ivpVector)
+println("Parareal evaluation finished")
 
-# solutionVector = pmap(ivp -> parareal(ivp, COARSEPROPAGATOR, FINEPROPAGATOR), ivpVector)
-
-# plot(
-#     rootSolution.domain,
-#     [rootSolution.positionSequence .|> first, rootSolution.velocitySequence .|> first],
-#     label = ["position" "velocity"],
-#     title = "propagator: $(FINEPROPAGATOR.propagator), discretization: $INITIALDISCRETIZATION"
-# )
-# savefig("cos.png")
+for (k, rootSolution) in enumerate(solutionVector)
+    plot!(
+        rootSolution.domain,
+        [rootSolution.positionSequence .|> first, rootSolution.velocitySequence .|> first],
+        label = ["position" "velocity"],
+        title = "k = $k"
+    )
+end
+println("Plot saved at ", pwd(), "/cos.png")
+savefig("cos.png")
