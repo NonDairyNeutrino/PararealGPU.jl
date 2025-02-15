@@ -46,6 +46,7 @@ end
 Propagates on the device.
 """
 function propagateKernel!(solver :: F, acceleration :: G, step :: H, positionSequence :: J, velocitySequence :: K) :: Nothing where {F, G, H, J, K}
+    # FIXME:                                               ^ should be domainPointVector; see kernel
     discretization = size(positionSequence, 3) # number of positions in the sequence
     @views for i in 2:(discretization - 1)
         oldPosition = positionSequence[:, i - 1]
@@ -53,6 +54,7 @@ function propagateKernel!(solver :: F, acceleration :: G, step :: H, positionSeq
         newPosition = positionSequence[:, i]
         newVelocity = velocitySequence[:, i]
         @inbounds newPosition, newVelocity = solver(oldPosition, oldVelocity, acceleration, step)
+        #                                                                                   ^ this SHOULD be step
     end
     return nothing
 end
