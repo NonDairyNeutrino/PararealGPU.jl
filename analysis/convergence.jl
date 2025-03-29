@@ -1,0 +1,1 @@
+# collection of tools to analyze the convergence rates of this implementation
