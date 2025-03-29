@@ -21,20 +21,20 @@ function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePro
     #                     and the number of points on which to evaluate
     rootSolution, subProblemVector = initializeSubproblems(ivp, coarsePropagator)
 
-    initialDiscretization        = coarsePropagator.discretization
+    initialDiscretization   = coarsePropagator.discretization
     subSolutionCoarseVector = similar(subProblemVector, Solution)
     subSolutionFineVector   = similar(subProblemVector, Solution)
     positionCorrectorVector = similar(subProblemVector, Vector{Float64})
     velocityCorrectorVector = similar(subProblemVector, Vector{Float64})
 
     # for iteration in 1:initialDiscretization # parareal converges in at most INITIALDISCRETIZATION iterations
-    iteration = 0
+    iteration        = 0
     maxIterations    = coarsePropagator.discretization
     oldSolution      = rootSolution
     newSolution      = nothing
     while iteration <= maxIterations || !hasConverged(oldSolution, newSolution; threshold)
-        iteration += 1
-        oldSolution = newSolution
+        iteration   += 1
+        oldSolution  = newSolution
         println("Beginning iteration $iteration")
         # the following loops are disjoint to hopefully take advantage of processor pre-fetching
         # i.e. loop fission

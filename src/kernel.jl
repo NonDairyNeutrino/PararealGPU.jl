@@ -4,8 +4,8 @@
 Initializes host-based arrays for the discretized domains, positions, and velocities.
 """
 function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Array, Array}
-    solutionCount            = length(subProblemVector)
-    sequenceLength     = discretization
+    solutionCount     = length(subProblemVector)
+    sequenceLength    = discretization
     positionDimension = subProblemVector[1].initialPosition |> length
 
     # port domain bounds to an array, THEN put the whole thing on the device
@@ -27,11 +27,17 @@ function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :
 end
 
 """
-    discretizeKernel!(domainPointVector :: T) where T
+    discretizeKernel!(domainPointVector :: S, step :: T) where {S, T}
 
 Fill discretized domain with middle elements.
 """
 function discretizeKernel!(domainPointVector :: S, step :: T) where {S, T}
+    # why did I call it "domainPointVector"? Cause it's a vector of the points in the domain
+    # is that a particularly intuitive name? I don't know.
+    # what I do know is that domainPointVector takes the form 
+    # [lower bound, 0.0, 0.0, ... , 0.0, upper bound]
+    # why is it like that? So the gpu can purely just calculate and assign to an array index
+    # and not have to do any allocations
     discretization = length(domainPointVector)
     lowerBound     = domainPointVector[begin]
     for i in 2:(discretization - 1)
