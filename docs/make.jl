@@ -1,10 +1,12 @@
+push!(LOAD_PATH,"../src/")
+
 using Documenter
-using Parareal
+using PararealGPU
 
 makedocs(
-    sitename = "Parareal",
+    sitename = "PararealGPU",
     format = Documenter.HTML(),
-    modules = [Parareal]
+    modules = [PararealGPU]
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.

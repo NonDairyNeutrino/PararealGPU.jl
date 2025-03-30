@@ -1,6 +1,7 @@
-# Parareal.jl
-Documentation for the Parareal.jl package to solve initial value differential equations in parallel.
+# PararealGPU.jl
+
+Documentation for PararealGPU.jl
 
 ```@autodocs
-Modules = [Parareal]
+Modules = [PararealGPU]
 ```
