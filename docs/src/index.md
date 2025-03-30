@@ -2,12 +2,12 @@
 
 Documentation for PararealGPU.jl
 
-<!-- ```@contents
-``` -->
+```@contents
+```
 
-<!-- ```@autodocs
+```@autodocs
 Modules = [PararealGPU]
-``` -->
+```
 
-<!-- ```@index
-``` -->
+```@index
+```
