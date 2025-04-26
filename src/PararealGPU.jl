@@ -6,7 +6,7 @@ module PararealGPU
 export euler, symplecticEuler, velocityVerlet  # integration.jl
 export Interval, FirstOrderIVP, SecondOrderIVP # ivp.jl
 export Propagator
-export prepCluster, getHDC                     # distributed.jl
+export prepCluster, getHDC, solve                     # distributed.jl
 export parareal                                # Parareal.jl
 export @everywhere, pmap, myid                 # Distributed
 
