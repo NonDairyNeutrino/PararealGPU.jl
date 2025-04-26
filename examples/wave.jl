@@ -9,26 +9,31 @@ devPool = prepCluster(nodeVector)
 
 println("Creating initial value problems")
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
-const INITIALDISCRETIZATION = Threads.nthreads()
-const COARSEPROPAGATOR      = Propagator(symplecticEuler, INITIALDISCRETIZATION)
-const FINEPROPAGATOR        = Propagator(velocityVerlet,  2^0 * INITIALDISCRETIZATION)
+const COARSEPROPAGATOR = Propagator(symplecticEuler, 8192) # how many problems / GPU cores
+const FINEPROPAGATOR   = Propagator(velocityVerlet,  2048) # how many steps on each core / for each problem
 
-@everywhere @inline function acceleration(position :: Vector{T}, velocity :: Vector{T}; k = 1) :: Vector{T} where T <: Real
-    return -k^2 * position # this encodes the differential equation u''(t) = -u
+
+# @everywhere function acceleration(position :: Vector{T}, velocity :: Vector{T}; k = 1) :: Vector{T} where T <: Real
+#     return -k^2 * position # this encodes the differential equation u''(t) = -u
+# end
+
+@everywhere function gen_acc(wave_number :: Int = 1)
+    function acc(position :: Vector{T}, velocity :: Vector{T}) :: Vector{T} where T <: Real
+        return -wave_number^2 * position
+    end
+    return acc
 end
+
 const INITIALPOSITION = [0.]
 const INITIALVELOCITY = [1.]
-const DOMAIN          = Interval(0., 2^2 * pi)
-# const IVP             = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY) # second order initial value problem
+const DOMAIN          = Interval(0., 2^1 * pi)
 
-ivpVector = Vector{SecondOrderIVP}(undef, length(devPool))
+ivpVector = similar(devPool, SecondOrderIVP)
 for k in 1:length(devPool)
-    ivpVector[k] = SecondOrderIVP(DOMAIN, (x, v) -> acceleration(x, v; k), INITIALPOSITION, INITIALVELOCITY)
+    ivpVector[k] = SecondOrderIVP(DOMAIN, gen_acc(k), INITIALPOSITION, INITIALVELOCITY)
 end
 
-println("Beginning parareal evaluation on workers")
-solutionVector = pmap(ivp -> parareal(ivp, COARSEPROPAGATOR, FINEPROPAGATOR), devPool, ivpVector)
-println("Parareal evaluation finished")
+solutionVector = solve(COARSEPROPAGATOR, FINEPROPAGATOR, devPool, ivpVector)
 
 for (k, rootSolution) in enumerate(solutionVector)
     plot!(
