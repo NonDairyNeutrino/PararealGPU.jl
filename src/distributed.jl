@@ -164,7 +164,7 @@ end
 function solve(
     coarse :: Propagator, 
     fine :: Propagator, 
-    devpool :: CachingPool, 
+    devPool :: CachingPool, 
     ivpVector :: Vector{SecondOrderIVP}
 ) :: Vector{Solution}
     println("Beginning parareal evaluation on workers")
