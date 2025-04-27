@@ -69,18 +69,22 @@ function propagate(
     propagator :: Propagator, 
     positionCorrectorVector :: Vector{Vector{Float64}}, 
     velocityCorrectorVector :: Vector{Vector{Float64}}
-    ) :: Solution
+    ) :: Tuple{Solution, Solution}
     step                = (ivp.domain.ub - ivp.domain.lb) / propagator.discretization
     discretizedDomain   = discretize(ivp.domain, propagator.discretization)
     positionSequence    = similar(discretizedDomain, ivp.initialPosition |> typeof)
     velocitySequence    = similar(discretizedDomain, ivp.initialVelocity |> typeof)
+    positionPrediction  = similar(discretizedDomain, ivp.initialPosition |> typeof)
+    velocityPrediction  = similar(discretizedDomain, ivp.initialVelocity |> typeof)
 
     positionSequence[1] = ivp.initialPosition
     velocitySequence[1] = ivp.initialVelocity
     for i in Iterators.drop(eachindex(positionSequence), 1)
-        positionSequence[i], velocitySequence[i] = propagator.propagator(positionSequence[i - 1], velocitySequence[i - 1], ivp.acceleration, step)
-        positionSequence[i] += positionCorrectorVector[i - 1]
-        velocitySequence[i] += velocityCorrectorVector[i - 1]
+        positionPrediction[i], velocityPrediction[i] = propagator.propagator(positionSequence[i - 1], velocitySequence[i - 1], ivp.acceleration, step)
+        positionSequence[i] = positionPrediction[i] + positionCorrectorVector[i - 1]
+        velocitySequence[i] = velocityPrediction[i] + velocityCorrectorVector[i - 1]
     end
-    return Solution(discretizedDomain, positionSequence, velocitySequence)
+    pred_sol = Solution(discretizedDomain, positionPrediction, velocityPrediction)
+    sol      = Solution(discretizedDomain, positionSequence, velocitySequence)
+    return sol, pred_sol
 end

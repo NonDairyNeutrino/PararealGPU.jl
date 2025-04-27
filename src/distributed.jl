@@ -160,16 +160,3 @@ function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Cach
     return workerIDVector |> CachingPool
     # return 
 end
-
-function solve(
-    coarse :: Propagator, 
-    fine :: Propagator, 
-    devPool :: CachingPool, 
-    ivpVector :: Vector{SecondOrderIVP}
-) :: Vector{Solution}
-    println("Beginning parareal evaluation on workers")
-    solutionVector = pmap(ivp -> parareal(ivp, coarse, fine), devPool, ivpVector)
-    println("Parareal evaluation finished. Closing cluster.")
-    rmprocs(workers()...)
-    return solutionVector
-end
