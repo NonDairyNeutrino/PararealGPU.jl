@@ -118,9 +118,9 @@ function parareal_recursive(
     # if I am the director, distribute the problems over the workers
     # otherwise I am a worker and I solve all the problems on the GPU
     if myid() == 1 # director processes has id == 1
-        println("Distributing problems.")
         # parallelize over workers
         function parallelPropagate()
+            println("Distributing problems.")
             subSolutionFineVector .= pmap(
                 ivp -> parareal_recursive(
                     ivp, 
@@ -134,9 +134,9 @@ function parareal_recursive(
             return subSolutionFineVector
         end
     else
-        println("Executing Order 66")
         # parallelize over GPU
         function parallelPropagate()
+            println("Executing Order 66")
             discretizedDomain, positionFine, velocityFine = kernelPrep(
                 subProblemVector, 
                 finePropagator.discretization
