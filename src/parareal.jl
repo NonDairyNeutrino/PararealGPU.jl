@@ -115,7 +115,7 @@ function distribute(
         # if I'm a manager, distribute over the device processes on this machine
         CachingPool(next_level),
         problemVector;
-        batch_size = div(length(problemVector), length(next_level))
+        batch_size = div(length(problemVector), length(next_level)) # load balance
     )
     return solutionVector
 end
@@ -135,7 +135,7 @@ function gpu!(
     prop           :: Propagator, 
     solutionVector :: Vector{Solution}
     ) :: Nothing
-    # println("Executing Order 66")
+    # prepare arrays to put data into
     discretizedDomain, positionMatrix, velocityMatrix = kernelPrep(
         problemVector, 
         prop.discretization
@@ -149,9 +149,9 @@ function gpu!(
         positionMatrix, 
         velocityMatrix
     )
+    myid() == 3 && display(solutionVector[1].positionSequence) # FIXME: <- should be vector of vectors
     return
 end
-
 # """
 #     getOffloadingScheme(
 #     devPool          :: CachingPool, 
@@ -188,8 +188,15 @@ function parareal_recursive(
     )
 # ==================================================================================================
     # INITIALIZATION
+    # println("Beginning iteration 0 on problem ", ivp.id)
     rootSolution, problemVector = initializeSubproblems(ivp, coarsePropagator)
-    predSolution = rootSolution # initialize predicted solution
+    predSolution = rootSolution # on iteration 0 predicted solution = root solution
+
+    oldSolution                   = rootSolution
+    oldSolution.positionSequence .= zero(oldSolution.positionSequence)
+    oldSolution.velocitySequence .= zero(oldSolution.velocitySequence)
+
+    newSolution  = rootSolution
 
     initialDiscretization   = coarsePropagator.discretization
     subSolutionCoarseVector = similar(problemVector, Solution)
@@ -201,20 +208,20 @@ function parareal_recursive(
     # INITIALDISCRETIZATION iterations
     iteration        = 0
     maxIterations    = coarsePropagator.discretization
-    oldSolution      = rootSolution
-    newSolution      = nothing
     
     # choose whether to parallelize over nodes or GPU
     # parallelPropagate, args = getOffloadingScheme(devPool, coarsePropagator, finePropagator, subProblemVector, solutionVector)
 # ==================================================================================================
     # BEGIN LOOP
-    while iteration <= maxIterations || !hasConverged(oldSolution, newSolution; threshold)
+    while iteration < maxIterations || !hasConverged(oldSolution, newSolution; threshold)
         iteration   += 1
         oldSolution  = newSolution
-        
+
 # ==================================================================================================
         # offload and propagate in parallel
         if myid() in MANAGERPOOL || myid() == 1
+            # FIXME: something is happening to make subSolutionFineVector produce all
+            # zeros after the initial conditions
             println("Beginning iteration ", iteration, " on problem ", ivp.id)
             subSolutionFineVector = distribute(problemVector, coarsePropagator, finePropagator; threshold = threshold)
         else
@@ -227,6 +234,7 @@ function parareal_recursive(
             # correct! only needs the "last" value in the sequence, so just wrap the value in the an array
             # this emulates the coarse propagator also running for each subproblem because the
             # coarse propagator only takes one step
+            # the rest of th
             subSolutionCoarseVector[i] = Solution(Float64[], [pos], [vel])
         end
 
