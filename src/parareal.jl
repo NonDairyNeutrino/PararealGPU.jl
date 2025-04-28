@@ -102,7 +102,7 @@ function distribute(
     threshold = 10^(-10)
     ) :: Vector{Solution}
     next_level = myid() == 1 ? MANAGERPOOL : intersect(procs(myid()), DEVPOOL)
-    println("Distributing problems from ", myid(), " to ", next_level)
+    println("Distributing $(length(problemVector)) problems from ", myid(), " to ", next_level)
     solutionVector = pmap(
         ivp -> parareal_recursive(
             # distribute! args
@@ -271,6 +271,7 @@ function solve(
     println("Beginning parareal evaluation")
     sol = parareal_recursive(ivp, coarse, fine; threshold = threshold)
     println("Parareal evaluation finished. Closing cluster.")
+    # TODO: print stats e.g. total problems, iterations, steps
     rmprocs(workers())
     return sol
 end
