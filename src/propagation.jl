@@ -9,20 +9,6 @@ struct Propagator
 end
 
 """
-    Solution(domain :: Vector{Float64}, positionSequence :: Vector{Vector{Float64}}, velocitySequence :: Vector{Vector{Float64}})
-
-Structured representation of the solution to a numerical differential equation.
-"""
-struct Solution
-    domain           :: Vector         # time vector
-    positionSequence :: Vector{Vector} # time vector of space vectors
-    velocitySequence :: Vector{Vector} # time vector of space vectors
-    function Solution(domain, positionSequence :: Vector{Vector{T}}, velocitySequence = zeros(length(positionSequence) - 1) :: Vector{Vector{T}}) where T <: Real
-        return new(domain, positionSequence, velocitySequence)
-    end
-end
-
-"""
     propagate(ivp :: FirstOrderIVP, propagator :: Propagator, correctors :: Vector{Float64} = zeros(propagator.discretization + 1)) :: Solution
 
 Propagate an initial value problem using a given propagation scheme.

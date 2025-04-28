@@ -40,3 +40,17 @@ struct SecondOrderIVP <: InitialValueProblem
     initialVelocity :: Vector{Float64}
 end
 IVP2 = SecondOrderIVP # type alias
+
+"""
+    Solution(domain :: Vector{Float64}, positionSequence :: Vector{Vector{Float64}}, velocitySequence :: Vector{Vector{Float64}})
+
+Structured representation of the solution to a numerical differential equation.
+"""
+struct Solution
+    domain           :: Vector         # time vector
+    positionSequence :: Vector{Vector} # time vector of space vectors
+    velocitySequence :: Vector{Vector} # time vector of space vectors
+    function Solution(domain, positionSequence :: Vector{Vector{T}}, velocitySequence = zeros(length(positionSequence) - 1) :: Vector{Vector{T}}) where T <: Real
+        return new(domain, positionSequence, velocitySequence)
+    end
+end
