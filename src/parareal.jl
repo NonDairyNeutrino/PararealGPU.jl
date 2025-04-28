@@ -215,7 +215,7 @@ function parareal_recursive(
 # ==================================================================================================
         # offload and propagate in parallel
         if myid() in MANAGERPOOL || myid() == 1
-            println("Beginning iteration ", iteration, " on ", myid())
+            println("Beginning iteration ", iteration, " on problem ", ivp.id)
             subSolutionFineVector = distribute(problemVector, coarsePropagator, finePropagator; threshold = threshold)
         else
             gpu!(problemVector, finePropagator, subSolutionFineVector)

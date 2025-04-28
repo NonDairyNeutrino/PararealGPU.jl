@@ -16,10 +16,11 @@ function initializeSubproblems(ivp :: SecondOrderIVP, initialPropagator :: Propa
     # create a bunch of smaller initial value problems that can be solved in parallel
     subProblemVector = similar(subDomainVector, SecondOrderIVP)
     for i in eachindex(subDomainVector)
+        id                  = ivp.id * "." * string(i)
         subDomain           = subDomainVector[i]
         initialPosition     = initialSolution.positionSequence[i]
         initialVelocity     = initialSolution.velocitySequence[i]
-        subProblemVector[i] = SecondOrderIVP(subDomain, ivp.acceleration, initialPosition, initialVelocity)
+        subProblemVector[i] = SecondOrderIVP(id, subDomain, ivp.acceleration, initialPosition, initialVelocity)
     end
     return initialSolution, subProblemVector
 end
@@ -32,10 +33,13 @@ Update the current set of subproblems with the corrected root solution.
 function updateSubproblems!(subProblemVector :: Vector{SecondOrderIVP}, rootSolution :: Solution, acceleration :: Function)
     subDomainVector = getproperty.(subProblemVector, :domain) # reuse cause sub-domains don't change
     for i in eachindex(subDomainVector)
+        id                  = subProblemVector[i].id
         subDomain           = subDomainVector[i]               # domain in time
         initialPosition     = rootSolution.positionSequence[i] # initial position at a point in time
         initialVelocity     = rootSolution.velocitySequence[i] # initial velocity at a point in time
-        subProblemVector[i] = SecondOrderIVP(subDomain, acceleration, initialPosition, initialVelocity)
+        # TODO: make SecondOrderIVP mutable to avoid allocating new problems
+        # id, domain, and acceleration don't change
+        subProblemVector[i] = SecondOrderIVP(id, subDomain, acceleration, initialPosition, initialVelocity)
     end
     return subProblemVector
 end

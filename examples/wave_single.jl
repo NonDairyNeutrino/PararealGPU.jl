@@ -28,7 +28,7 @@ end
 const INITIALPOSITION = [0.]
 const INITIALVELOCITY = [1.]
 const DOMAIN          = Interval(0., 2^1 * pi)
-const IVP             = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY)
+const IVP             = SecondOrderIVP("0", DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY)
 end
 
 solution = solve(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)

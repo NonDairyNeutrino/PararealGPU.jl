@@ -33,6 +33,7 @@ IVP1 = FirstOrderIVP # type alias
 An object representing a second-order initial value problem.
 """
 struct SecondOrderIVP <: InitialValueProblem
+    id              :: String
     domain          :: Interval
     acceleration    :: Function
     initialPosition :: Vector{Float64}
