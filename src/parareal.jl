@@ -1,110 +1,201 @@
+# """
+#     parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator)
+
+# Numerically solve the given initial value problem in parallel using a given
+# propagator and discretizations.
+# """
+# function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator; threshold = 10^(-10))
+#     # Some notes on terminology and consistency
+#     # IVP.................A structure representing an initial value problem
+#     #                     consisting of a derivative function, an initial value
+#     #                     and a domain (see Domain below)
+#     # Domain..............the interval on which an IVP is defined
+#     # Subdomain...........a domain that is a subset of another domain
+#     # Discretized Domain..a vector of points, all of which are in a domain
+#     # Range...............
+#     # Discretized Range...a vector of points corresponding to the output of the
+#     #                     solution function
+#     # Solution............an ordered pair of the discretized domain and the
+#     #                     discretized range that satisfies the original IVP
+#     # Propagator..........a structure consisting of a numerical integrator
+#     #                     and the number of points on which to evaluate
+#     rootSolution, subProblemVector = initializeSubproblems(ivp, coarsePropagator)
+
+#     initialDiscretization   = coarsePropagator.discretization
+#     subSolutionCoarseVector = similar(subProblemVector, Solution)
+#     subSolutionFineVector   = similar(subProblemVector, Solution)
+#     positionCorrectorVector = similar(subProblemVector, Vector{Float64})
+#     velocityCorrectorVector = similar(subProblemVector, Vector{Float64})
+
+#     # for iteration in 1:initialDiscretization # parareal converges in at most INITIALDISCRETIZATION iterations
+#     iteration        = 0
+#     maxIterations    = coarsePropagator.discretization
+#     oldSolution      = rootSolution
+#     newSolution      = nothing
+#     while iteration <= maxIterations || !hasConverged(oldSolution, newSolution; threshold)
+#         iteration   += 1
+#         oldSolution  = newSolution
+#         println("Beginning iteration $iteration")
+#         # the following loops are disjoint to hopefully take advantage of processor pre-fetching
+#         # i.e. loop fission
+
+#         #FIXME: DON'T COARSE PROPAGATION IN THE KERNEL
+#         # STORE AND REUSE THE VALUES CALCULATED IN THE CORRECTION
+#         discretizedDomain, positionCoarse, velocityCoarse = kernelPrep(
+#             subProblemVector, 
+#             coarsePropagator.discretization
+#         )
+#         println("Beginning coarse parallel propagation")
+#         subSolutionCoarseVector = pararealSolution(
+#             coarsePropagator.propagator, 
+#             ivp.acceleration, 
+#             discretizedDomain, 
+#             positionCoarse, 
+#             velocityCoarse
+#         )
+
+#         discretizedDomain, positionFine, velocityFine = kernelPrep(
+#             subProblemVector, 
+#             finePropagator.discretization # FIXME: should this be finePropagator.discretization ?
+#         )
+#         println("Beginning fine parallel propagation")
+#         subSolutionFineVector = pararealSolution(
+#             finePropagator.propagator, 
+#             ivp.acceleration, 
+#             discretizedDomain, 
+#             positionFine, 
+#             velocityFine
+#         )
+
+#         # correction
+#         # STORE AND REUSE THE VALUES CALCULATED IN THE CORRECTION
+#         println("Beginning correction")
+#         correct!(subSolutionFineVector, subSolutionCoarseVector, positionCorrectorVector, velocityCorrectorVector)
+
+#         # correct root solution
+#         rootSolution = propagate(ivp, coarsePropagator, positionCorrectorVector, velocityCorrectorVector)
+
+#         # create new sub problems
+#         if iteration != initialDiscretization # no need for new subproblems after last iteration
+#             println("Updating subproblems")
+#             updateSubproblems!(subProblemVector, rootSolution, ivp.acceleration)
+#         end
+#         newSolution = rootSolution
+#     end
+#     return rootSolution
+# end
+
 """
-    parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator)
+    distribute!(
+    devPool          :: CachingPool, 
+    coarsePropagator :: Propagator, 
+    finePropagator   :: Propagator,
+    problemVector    :: Vector{SecondOrderIVP}
+    ) :: Vector{Solution}
 
-Numerically solve the given initial value problem in parallel using a given
-propagator and discretizations.
+The parallelization scheme to use from the director process.
 """
-function parareal(ivp :: SecondOrderIVP, coarsePropagator :: Propagator, finePropagator :: Propagator; threshold = 10^(-10))
-    # Some notes on terminology and consistency
-    # IVP.................A structure representing an initial value problem
-    #                     consisting of a derivative function, an initial value
-    #                     and a domain (see Domain below)
-    # Domain..............the interval on which an IVP is defined
-    # Subdomain...........a domain that is a subset of another domain
-    # Discretized Domain..a vector of points, all of which are in a domain
-    # Range...............
-    # Discretized Range...a vector of points corresponding to the output of the
-    #                     solution function
-    # Solution............an ordered pair of the discretized domain and the
-    #                     discretized range that satisfies the original IVP
-    # Propagator..........a structure consisting of a numerical integrator
-    #                     and the number of points on which to evaluate
-    rootSolution, subProblemVector = initializeSubproblems(ivp, coarsePropagator)
-
-    initialDiscretization   = coarsePropagator.discretization
-    subSolutionCoarseVector = similar(subProblemVector, Solution)
-    subSolutionFineVector   = similar(subProblemVector, Solution)
-    positionCorrectorVector = similar(subProblemVector, Vector{Float64})
-    velocityCorrectorVector = similar(subProblemVector, Vector{Float64})
-
-    # for iteration in 1:initialDiscretization # parareal converges in at most INITIALDISCRETIZATION iterations
-    iteration        = 0
-    maxIterations    = coarsePropagator.discretization
-    oldSolution      = rootSolution
-    newSolution      = nothing
-    while iteration <= maxIterations || !hasConverged(oldSolution, newSolution; threshold)
-        iteration   += 1
-        oldSolution  = newSolution
-        println("Beginning iteration $iteration")
-        # the following loops are disjoint to hopefully take advantage of processor pre-fetching
-        # i.e. loop fission
-
-        #FIXME: DON'T COARSE PROPAGATION IN THE KERNEL
-        # STORE AND REUSE THE VALUES CALCULATED IN THE CORRECTION
-        discretizedDomain, positionCoarse, velocityCoarse = kernelPrep(
-            subProblemVector, 
-            coarsePropagator.discretization
-        )
-        println("Beginning coarse parallel propagation")
-        subSolutionCoarseVector = pararealSolution(
-            coarsePropagator.propagator, 
-            ivp.acceleration, 
-            discretizedDomain, 
-            positionCoarse, 
-            velocityCoarse
-        )
-
-        discretizedDomain, positionFine, velocityFine = kernelPrep(
-            subProblemVector, 
-            finePropagator.discretization # FIXME: should this be finePropagator.discretization ?
-        )
-        println("Beginning fine parallel propagation")
-        subSolutionFineVector = pararealSolution(
-            finePropagator.propagator, 
-            ivp.acceleration, 
-            discretizedDomain, 
-            positionFine, 
-            velocityFine
-        )
-
-        # correction
-        # STORE AND REUSE THE VALUES CALCULATED IN THE CORRECTION
-        println("Beginning correction")
-        correct!(subSolutionFineVector, subSolutionCoarseVector, positionCorrectorVector, velocityCorrectorVector)
-
-        # correct root solution
-        rootSolution = propagate(ivp, coarsePropagator, positionCorrectorVector, velocityCorrectorVector)
-
-        # create new sub problems
-        if iteration != initialDiscretization # no need for new subproblems after last iteration
-            println("Updating subproblems")
-            updateSubproblems!(subProblemVector, rootSolution, ivp.acceleration)
-        end
-        newSolution = rootSolution
-    end
-    return rootSolution
+function distribute(
+    problemVector    :: Vector{SecondOrderIVP},
+    coarsePropagator :: Propagator, 
+    finePropagator   :: Propagator;
+    threshold = 10^(-10)
+    ) :: Vector{Solution}
+    next_level = myid() == 1 ? MANAGERPOOL : intersect(procs(myid()), DEVPOOL)
+    println("Distributing problems from ", myid(), " to ", next_level)
+    solutionVector = pmap(
+        ivp -> parareal_recursive(
+            # distribute! args
+            ivp, 
+            coarsePropagator,
+            finePropagator;
+            threshold = threshold
+        ), 
+        # if I'm the director, distribute over the managers
+        # if I'm a manager, distribute over the device processes on this machine
+        CachingPool(next_level),
+        problemVector;
+        batch_size = div(length(problemVector), length(next_level))
+    )
+    return solutionVector
 end
 
+"""
+    gpu!(
+    acceleration   :: Function, 
+    prop           :: Propagator, 
+    problemVector  :: Vector{SecondOrderIVP}, 
+    solutionVector :: Vector{Solution}
+    ) :: Nothing
+
+The parallelization scheme to use from the worker processes.
+"""
+function gpu!(
+    problemVector  :: Vector{SecondOrderIVP},
+    prop           :: Propagator, 
+    solutionVector :: Vector{Solution}
+    ) :: Nothing
+    # println("Executing Order 66")
+    discretizedDomain, positionMatrix, velocityMatrix = kernelPrep(
+        problemVector, 
+        prop.discretization
+    )
+    # println("Beginning fine parallel propagation")
+    acceleration = problemVector[1].acceleration
+    solutionVector .= pararealSolution(
+        prop.propagator,
+        acceleration, 
+        discretizedDomain, 
+        positionMatrix, 
+        velocityMatrix
+    )
+    return
+end
+
+# """
+#     getOffloadingScheme(
+#     devPool          :: CachingPool, 
+#     coarsePropagator :: Propagator, 
+#     finePropagator   :: Propagator,
+#     problemVector    :: Vector{SecondOrderIVP}, 
+#     solutionVector   :: Vector{Solution}
+#     ) :: Tuple{Function, Vector{Any}}
+
+# Determine the offloading scheme to use based on whether or not it's run on the director or worker.
+# """
+# function getOffloadingScheme(
+#     devPool          :: CachingPool, 
+#     coarsePropagator :: Propagator, 
+#     finePropagator   :: Propagator,
+#     problemVector    :: Vector{SecondOrderIVP}, 
+#     solutionVector   :: Vector{Solution}
+#     ) :: Tuple{Function, Vector{Any}}
+#     if myid() == 1
+#         foo = distribute!
+#         args = [devPool, coarsePropagator, finePropagator, problemVector, solutionVector]
+#     else
+#         foo = gpu!
+#         args = [finePropagator, problemVector, solutionVector]
+#     end
+#     return (foo, args)
+# end
+
 function parareal_recursive(
-    ivp :: SecondOrderIVP, 
+    ivp              :: SecondOrderIVP, 
     coarsePropagator :: Propagator, 
-    finePropagator :: Propagator, 
-    devPool :: CachingPool; 
+    finePropagator   :: Propagator;
     threshold = 10^(-10)
     )
 # ==================================================================================================
     # INITIALIZATION
-    rootSolution, subProblemVector = initializeSubproblems(
-        ivp, 
-        coarsePropagator
-    )
+    rootSolution, problemVector = initializeSubproblems(ivp, coarsePropagator)
     predSolution = rootSolution # initialize predicted solution
 
     initialDiscretization   = coarsePropagator.discretization
-    subSolutionCoarseVector = similar(subProblemVector, Solution)
-    subSolutionFineVector   = similar(subProblemVector, Solution)
-    positionCorrectorVector = similar(subProblemVector, Vector{Float64})
-    velocityCorrectorVector = similar(subProblemVector, Vector{Float64})
+    subSolutionCoarseVector = similar(problemVector, Solution)
+    subSolutionFineVector   = similar(problemVector, Solution)
+    positionCorrectorVector = similar(problemVector, Vector{Float64})
+    velocityCorrectorVector = similar(problemVector, Vector{Float64})
 
     # for iteration in 1:initialDiscretization # parareal converges in at most
     # INITIALDISCRETIZATION iterations
@@ -112,55 +203,24 @@ function parareal_recursive(
     maxIterations    = coarsePropagator.discretization
     oldSolution      = rootSolution
     newSolution      = nothing
-# ==================================================================================================
-    # HOW TO PARALLELIZE
-
-    # if I am the director, distribute the problems over the workers
-    # otherwise I am a worker and I solve all the problems on the GPU
-    if myid() == 1 # director processes has id == 1
-        # parallelize over workers
-        function parallelPropagate()
-            println("Distributing problems.")
-            subSolutionFineVector .= pmap(
-                ivp -> parareal_recursive(
-                    ivp, 
-                    coarsePropagator, 
-                    finePropagator,
-                    devPool
-                ), 
-                devPool, 
-                subProblemVector
-            )
-            return subSolutionFineVector
-        end
-    else
-        # parallelize over GPU
-        function parallelPropagate()
-            println("Executing Order 66")
-            discretizedDomain, positionFine, velocityFine = kernelPrep(
-                subProblemVector, 
-                finePropagator.discretization
-            )
-            println("Beginning fine parallel propagation")
-            subSolutionFineVector .= pararealSolution(
-                finePropagator.propagator, 
-                ivp.acceleration, 
-                discretizedDomain, 
-                positionFine, 
-                velocityFine
-            )
-            return subSolutionFineVector
-        end
-    end
+    
+    # choose whether to parallelize over nodes or GPU
+    # parallelPropagate, args = getOffloadingScheme(devPool, coarsePropagator, finePropagator, subProblemVector, solutionVector)
 # ==================================================================================================
     # BEGIN LOOP
     while iteration <= maxIterations || !hasConverged(oldSolution, newSolution; threshold)
         iteration   += 1
         oldSolution  = newSolution
-        println("Beginning iteration $iteration")
-
-        subSolutionFineVector = parallelPropagate()
-
+        
+# ==================================================================================================
+        # offload and propagate in parallel
+        if myid() in MANAGERPOOL || myid() == 1
+            println("Beginning iteration ", iteration, " on ", myid())
+            subSolutionFineVector = distribute(problemVector, coarsePropagator, finePropagator; threshold = threshold)
+        else
+            gpu!(problemVector, finePropagator, subSolutionFineVector)
+        end
+# ==================================================================================================
         # correction
         # use the values given by the coarse propagator from the previous iteration
         for (i, (pos, vel)) in enumerate(zip(predSolution.positionSequence[2:end], predSolution.velocitySequence[2:end]))
@@ -170,7 +230,7 @@ function parareal_recursive(
             subSolutionCoarseVector[i] = Solution(Float64[], [pos], [vel])
         end
 
-        println("Beginning correction")
+        # println("Calculating corrections")
         correct!(
             subSolutionFineVector, 
             subSolutionCoarseVector, 
@@ -179,6 +239,7 @@ function parareal_recursive(
         )
 
         # correct root solution
+        # println("Coarse propagating")
         rootSolution, predSolution = propagate(
             ivp, 
             coarsePropagator, 
@@ -188,29 +249,28 @@ function parareal_recursive(
 # ==================================================================================================
         # create new sub problems
         if iteration != initialDiscretization # no need for new subproblems after last iteration
-            println("Updating subproblems")
+            # println("Updating subproblems")
             updateSubproblems!(
-                subProblemVector, 
+                problemVector, 
                 rootSolution, 
                 ivp.acceleration
             )
         end
         newSolution = rootSolution
     end
+# ==================================================================================================
     return rootSolution
 end
 
 function solve(
+    ivp :: SecondOrderIVP,
     coarse :: Propagator, 
-    fine :: Propagator, 
-    devPool :: CachingPool, 
-    ivp :: SecondOrderIVP;
+    fine :: Propagator;
     threshold = 10^(-10)
 ) :: Solution
-    println("Beginning parareal evaluation on workers")
-    # TODO: replace parareal with parareal_recursive
-    sol = parareal_recursive(ivp, coarse, fine, devPool; threshold = threshold)
+    println("Beginning parareal evaluation")
+    sol = parareal_recursive(ivp, coarse, fine; threshold = threshold)
     println("Parareal evaluation finished. Closing cluster.")
-    rmprocs(workers()...) # TODO: move this out of solve
+    rmprocs(workers())
     return sol
 end

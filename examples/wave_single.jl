@@ -5,11 +5,11 @@ using Plots
 include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
 const nodeVector = String["Electromagnetism"]
-devPool = prepCluster(nodeVector)
+prepCluster(nodeVector)
 
 println("Creating initial value problems")
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
-const COARSEDISCRETIZATION = 64
+const COARSEDISCRETIZATION = 8
 const FINEDISCRETIZATION   = 2048
 
 const COARSEPROPAGATOR = Propagator(symplecticEuler, COARSEDISCRETIZATION) # how many problems / GPU cores
@@ -17,29 +17,21 @@ const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION) # how m
 
 @everywhere begin
 """
-    gen_acc(wave_number :: Int = 1) :: Function
+    acceleration(position :: Vector{T}, velocity :: Vector{T}) :: Vector{T} where T <: Real
 
 Generate an acceleration function based on the given wave number.
 """
-function gen_acc(wave_number :: Int = 1) :: Function
-    function acc(position :: Vector{T}, velocity :: Vector{T}) :: Vector{T} where T <: Real
-        return -wave_number^2 * position
-    end
-    return acc
-end
+function acceleration(position :: Vector{T}, velocity :: Vector{T}) :: Vector{T} where T <: Real
+    return -position
 end
 
 const INITIALPOSITION = [0.]
 const INITIALVELOCITY = [1.]
 const DOMAIN          = Interval(0., 2^1 * pi)
+const IVP             = SecondOrderIVP(DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY)
+end
 
-# ivpVector = Vector{SecondOrderIVP}(undef, length(devPool))
-# for k in 1:length(devPool)
-#     ivpVector[k] = SecondOrderIVP(DOMAIN, gen_acc(k), INITIALPOSITION, INITIALVELOCITY)
-# end
-const IVP :: SecondOrderIVP = SecondOrderIVP(DOMAIN, gen_acc(1), INITIALPOSITION, INITIALVELOCITY)
-
-solution = solve(COARSEPROPAGATOR, FINEPROPAGATOR, devPool, IVP)
+solution = solve(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)
 # TODO: write solutions to a file just in case something goes wrong after this
 
 plot(sin, range(DOMAIN.lb, DOMAIN.ub, COARSEDISCRETIZATION + 1), label = "position - true")

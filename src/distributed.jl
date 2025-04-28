@@ -17,7 +17,7 @@ on pid1
 =#
 struct Host
     name      :: String
-    master    :: Int
+    manager    :: Int
     workerVector :: Vector{Int}
     devCount :: Int # or Vector{CuDevice} for slight performance increase
     function Host(name, pidVector, devCount)
@@ -26,7 +26,7 @@ struct Host
 end
 function Base.show(io :: IO, host :: Host)
     println(io, "Host:   ", host.name)
-    println(io, "Master:  ", host.master)
+    println(io, "Manager:  ", host.manager)
     println(io, "Workers: ", host.workerVector)
     println(io, "Devices: ", host.devCount)
 end
@@ -44,7 +44,7 @@ function spawnManagers(remoteHostNameVector :: Union{Vector{String}, Int}) :: Ve
     println("Loading PararealGPU.jl on all manager processes")
     @eval @everywhere workers() include("$(pwd())/src/PararealGPU.jl")
     @eval @everywhere workers() using .PararealGPU
-    println("PararealGPU.jl loaded on all manager processes")
+    printstyled("PararealGPU.jl loaded on all manager processes\n", color=:green)
     return managerVector
 end
 
@@ -59,7 +59,7 @@ Spawn worker processes that will control device usage.
 function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}}
     println("Loading CUDA on all manager processes")
     @eval @everywhere workers() using CUDA # load CUDA module on each process including master
-    println("CUDA loaded on all manager processes")
+    printstyled("CUDA loaded on all manager processes\n", color=:green)
 
     # hostDeviceCountVector
     println("Getting number of devices on each host")
@@ -71,7 +71,7 @@ function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}
     println("Loading PararealGPU on each worker process")
     @eval @everywhere $deviceWorkers include("$(pwd())/src/PararealGPU.jl")
     @eval @everywhere $deviceWorkers using .PararealGPU
-    println("PararealGPU loaded on all worker processes.")
+    printstyled("PararealGPU loaded on all worker processes.\n", color=:green)
     return hdcVector
 end
 
@@ -148,7 +148,7 @@ end
 
 Prepare a cluster and return a pool of device processes.
 """
-function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: CachingPool
+function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Nothing
     managerVector  = spawnManagers(remoteHostNameVector)
     hdcVector      = spawnWorkers(managerVector)
     devCountVector = getindex.(hdcVector, 2)
@@ -156,7 +156,10 @@ function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Cach
     assignDevices!(hostVector)
     showDeviceAssignments()
 
-    workerIDVector = getproperty.(hostVector, :workerVector) |> Iterators.flatten |> collect
-    return workerIDVector |> CachingPool
-    # return 
+    devPool = getproperty.(hostVector, :workerVector) |> Iterators.flatten |> collect
+    # @everywhere evaluate in the Main module, so need to explicitly put in PararealGPU module
+    @everywhere PararealGPU.MANAGERPOOL = #= CachingPool =#$managerVector
+    @everywhere PararealGPU.DEVPOOL     = #= CachingPool =#$devPool
+    printstyled("Cluster created with MANAGERPOOL = $managerVector, DEVPOOL = $devPool\n", color=:green)
+    return 
 end

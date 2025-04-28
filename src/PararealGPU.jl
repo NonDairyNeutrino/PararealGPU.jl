@@ -6,14 +6,18 @@ module PararealGPU
 export euler, symplecticEuler, velocityVerlet  # integration.jl
 export Interval, FirstOrderIVP, SecondOrderIVP # ivp.jl
 export Propagator
-export prepCluster, getHDC, solve                     # distributed.jl
+export prepCluster, getHDC, solve              # distributed.jl
 export parareal                                # Parareal.jl
-export @everywhere, pmap, myid                 # Distributed
+export @everywhere, pmap, myid, CachingPool    # Distributed
 
 using CUDA
 # using Adapt: @adapt_structure
 using LinearAlgebra: norm
 using Distributed
+
+# see distributed.jl/prepCluster
+MANAGERPOOL = nothing
+DEVPOOL     = nothing
 
 include("ivp.jl")
 include("discretization.jl")
