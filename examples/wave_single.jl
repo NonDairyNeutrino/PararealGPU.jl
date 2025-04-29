@@ -10,7 +10,7 @@ prepCluster(nodeVector)
 println("Creating initial value problems")
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
 const COARSEDISCRETIZATION = 8
-const FINEDISCRETIZATION   = 2048
+const FINEDISCRETIZATION   = 8
 
 const COARSEPROPAGATOR = Propagator(symplecticEuler, COARSEDISCRETIZATION) # how many problems / GPU cores
 const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION) # how many steps on each core / for each problem
@@ -24,12 +24,12 @@ Generate an acceleration function based on the given wave number.
 function acceleration(position :: Vector{T}, velocity :: Vector{T}) :: Vector{T} where T <: Real
     return -position
 end
+end
 
 const INITIALPOSITION = [0.]
 const INITIALVELOCITY = [1.]
 const DOMAIN          = Interval(0., 2^1 * pi)
 const IVP             = SecondOrderIVP("0", DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY)
-end
 
 solution = solve(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)
 # TODO: write solutions to a file just in case something goes wrong after this

@@ -115,7 +115,7 @@ function distribute(
         # if I'm a manager, distribute over the device processes on this machine
         CachingPool(next_level),
         problemVector;
-        batch_size = div(length(problemVector), length(next_level)) # load balance
+        # batch_size = div(length(problemVector), length(next_level)) # load balance
     )
     return solutionVector
 end
@@ -149,7 +149,7 @@ function gpu!(
         positionMatrix, 
         velocityMatrix
     )
-    myid() == 3 && display(solutionVector[1].positionSequence) # FIXME: <- should be vector of vectors
+    error("STOP")
     return
 end
 # """
@@ -220,8 +220,6 @@ function parareal_recursive(
 # ==================================================================================================
         # offload and propagate in parallel
         if myid() in MANAGERPOOL || myid() == 1
-            # FIXME: something is happening to make subSolutionFineVector produce all
-            # zeros after the initial conditions
             println("Beginning iteration ", iteration, " on problem ", ivp.id)
             subSolutionFineVector = distribute(problemVector, coarsePropagator, finePropagator; threshold = threshold)
         else

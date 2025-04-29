@@ -51,16 +51,22 @@ end
 
 Propagates on the device.
 """
-function propagateKernel!(solver :: F, acceleration :: G, step :: H, positionSequence :: J, velocitySequence :: K) :: Nothing where {F, G, H, J, K}
-    # FIXME:                                               ^ should be domainPointVector; see kernel
+function propagateKernel!(
+    solver           :: F, 
+    acceleration     :: G, 
+    step             :: H, 
+    positionSequence :: J, 
+    velocitySequence :: K
+    ) :: Nothing where {F, G, H, J, K}
     discretization = size(positionSequence, 3) # number of positions in the sequence
     @views for i in 2:(discretization - 1)
         oldPosition = positionSequence[:, i - 1]
         oldVelocity = velocitySequence[:, i - 1]
-        newPosition = positionSequence[:, i]
-        newVelocity = velocitySequence[:, i]
+        # @cushow oldVelocity
         @inbounds newPosition, newVelocity = solver(oldPosition, oldVelocity, acceleration, step)
-        #                                                                                   ^ this SHOULD be step
+        # @cushow newVelocity
+        positionSequence[:, i] .= newPosition
+        velocitySequence[:, i] .= newVelocity
     end
     return nothing
 end
@@ -84,8 +90,13 @@ function kernel!(solver, acceleration, discretizedDomain, position, velocity) ::
         positionSequence = position[i, :, :]
         velocitySequence = velocity[i, :, :]
 
-        discretizeKernel!(domainPointVector, step)
-        propagateKernel!(solver, acceleration, domainPointVector, positionSequence, velocitySequence)
+        @cuprintln("descretizing")
+        # these kernel calls also execute asynchronously!
+        #= CUDA.@sync =# discretizeKernel!(domainPointVector, step)
+        @cuprintln("propagating")
+        #= CUDA.@sync =# propagateKernel!(solver, acceleration, step, positionSequence, velocitySequence)
+        @cuprintln("done propagating")
+        synchronize()
     end
     return nothing
 end
@@ -107,7 +118,21 @@ function pararealSolution(solver, acceleration, discretizedDomain, position, vel
     blocks  = cld(problemCount, threads)
     # actually launches the kernel on the device
     # println("Evaluating on $blocks blocks and $threads threads per block.")
+
+
+
+
+    @show velocity[1, :, :]
+    # FIXME: synchronize kernel call! otherwise it's all useless!
+    # probably just yank discretize kernel and directly call propagate
     kernel(solver, acceleration, discretizedDomain, position, velocity; threads, blocks)
+    synchronize()
+    @show velocity[1, :, :]
+
+
+
+
+
     # println("GPU execution successful!")
 
     subSolutionVector = Vector{Solution}(undef, problemCount)
