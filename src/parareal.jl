@@ -142,12 +142,12 @@ function gpu!(
     )
     # println("Beginning fine parallel propagation")
     acceleration = problemVector[1].acceleration
-    solutionVector .= pararealSolution(
+    solutionVector .= pararealSolution!(
         prop.propagator,
         acceleration, 
-        discretizedDomain, 
-        positionMatrix, 
-        velocityMatrix
+        discretizedDomain .|> Float32, 
+        positionMatrix .|> Float32, 
+        velocityMatrix .|> Float32
     )
     error("STOP")
     return
