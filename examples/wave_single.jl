@@ -21,7 +21,7 @@ const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION) # how m
 
 Generate an acceleration function based on the given wave number.
 """
-function acceleration(position :: Vector{T}, velocity :: Vector{T}) :: Vector{T} where T <: Real
+@inline function acceleration(position :: V, velocity :: V) :: V where V <: AbstractVector
     return -position
 end
 end
