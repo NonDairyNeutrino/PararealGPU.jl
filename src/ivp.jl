@@ -42,15 +42,22 @@ end
 IVP2 = SecondOrderIVP # type alias
 
 """
-    Solution(domain :: Vector{Float64}, positionSequence :: Vector{Vector{Float64}}, velocitySequence :: Vector{Vector{Float64}})
+    Solution(domain :: Vector{T}, positionSequence :: Vector{Vector{T}}, velocitySequence :: Vector{Vector{T}})
 
 Structured representation of the solution to a numerical differential equation.
 """
-struct Solution
-    domain           :: Vector         # time vector
-    positionSequence :: Vector{Vector} # time vector of space vectors
-    velocitySequence :: Vector{Vector} # time vector of space vectors
-    function Solution(domain, positionSequence :: Vector{Vector{T}}, velocitySequence = zeros(length(positionSequence) - 1) :: Vector{Vector{T}}) where T <: Real
+struct Solution{T <: Real}
+    domain           :: Vector{T}         # time vector
+    positionSequence :: Vector{Vector{T}} # time vector of space vectors
+    velocitySequence :: Vector{Vector{T}} # time vector of space vectors
+    function Solution{T}(
+        domain, 
+        positionSequence, 
+        velocitySequence = zeros(length(positionSequence) - 1)
+    ) where {T <: Real}
         return new(domain, positionSequence, velocitySequence)
     end
+end
+function Solution(d :: Vector{T}, ps :: Vector{Vector{T}}, vs :: Vector{Vector{T}}) where {T <: Real}
+    return Solution{T}(d, ps, vs)
 end

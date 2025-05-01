@@ -142,17 +142,18 @@ function propagate_gpu!(
                 x_old = @inbounds pos_seqs_dev[problem, dimension, t - 1]
                 v_old = @inbounds vel_seqs_dev[problem, dimension, t - 1]
 
+                # velocityVerlet TODO: make generalizable if that's even possible
                 acc_old = -x_old
                 x_new   = x_old + v_old * step + 0.5 * acc_old * step^2
                 acc_new = -x_new
                 v_new   = v_old + 0.5 * (acc_old + acc_new) * step
 
-                @inbounds pos_seqs_dev[problem, dimension, t - 1] = x_new
-                @inbounds vel_seqs_dev[problem, dimension, t - 1] = v_new
+                @inbounds pos_seqs_dev[problem, dimension, t] = x_new
+                @inbounds vel_seqs_dev[problem, dimension, t] = v_new
                 d += 1
             end
 
-            @cuprintln("Calculated values at time $t on problem $problem on thread ", threadIdx().x)
+            @cuprintln("From GPU thread ", threadIdx().x, ": problem $problem($t) has been calculated.")
             t += 1
         end
         problem += stride
@@ -214,7 +215,7 @@ function pararealSolution!(
     println("Evaluating on $blocks blocks and $threads threads per block.")
 
     # execute on the gpu
-    @show vel_seqs[1, :, :]
+    myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
     CUDA.@sync kernel_call(
         problemCount,
         dimension,
@@ -228,13 +229,17 @@ function pararealSolution!(
     printstyled("Kernel has finished!\n", color=:green)
 
     # pull off the gpu
-    pos_seqs .= mapslices(p -> vec.(eachcol(p)), pos_seqs_dev |> Array; dims=1)
-    vel_seqs .= mapslices(p -> vec.(eachcol(p)), vel_seqs_dev |> Array; dims=1)
-    @show vel_seqs[1, :, :]
+    pos_seqs = Array(pos_seqs_dev)
+    vel_seqs = Array(vel_seqs_dev)
+
+    myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
 
     solutionVector = Vector{Solution}(undef, problemCount)
-    for i in eachindex(solutionVector)
-        solutionVector[i] = Solution(discretizedDomain[:, i], pos_seqs[i, :, :], vel_seqs[i, :, :])
+    for problem in 1:problemCount
+        dom     = discretizedDomain[:, problem]
+        pos_seq = collect.(eachcol(pos_seqs[problem, :, :]))
+        vel_seq = collect.(eachcol(vel_seqs[problem, :, :]))
+        solutionVector[problem] = Solution(dom, pos_seq, vel_seq)
     end
 
     return solutionVector
