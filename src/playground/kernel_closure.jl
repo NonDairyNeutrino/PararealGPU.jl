@@ -2,12 +2,16 @@
 
 using CUDA
 
-cloo(foo, a) = ((x,y) -> foo(x, y) + a)
+module Cloo
+    export cloo
+    cloo(foo, a) = ((x,y) -> foo(x, y) + a)
+end
+using .Cloo
 
 function kernel!(clib, fib_array)
     i = 3
-    while i <= length(fib_array)
-        @cuprintln("Calculating step $i")
+    @views while i <= length(fib_array)
+        @cuprint("Calculating step $i\r")
         fib_array[i] = clib(fib_array[i-2], fib_array[i-1])
         i += 1
     end
@@ -25,16 +29,17 @@ fib(x, y) = x + y
 a = 1.0f0
 clib = cloo(fib, a)
 
-# kernel_call = @cuda launch=false kernel!(clib, fib_array_dev)
-# printstyled("Kernel successfully compiled\n", color=:green)
-# config  = launch_configuration(kernel_call.fun)
-# threads = min(max_steps, config.threads)
-# blocks  = cld(max_steps, threads)
-# println("Evaluating on $blocks blocks and $threads threads per block.")
+@show clib
+@show typeof(fib_array_dev)
+kernel_call = @cuda launch=false kernel!(clib, fib_array_dev)
+printstyled("Kernel successfully compiled\n", color=:green)
+config  = launch_configuration(kernel_call.fun)
+threads = min(max_steps, config.threads)
+blocks  = cld(max_steps, threads)
+println("Evaluating on $blocks blocks and $threads threads per block.")
 
 println("Launching kernel on the device")
-# CUDA.@sync @cuda kernel_call(clib, fib_array_dev, threads, blocks)
-CUDA.@sync @cuda threads=max_steps kernel!(clib, fib_array_dev)
+CUDA.@sync kernel_call(clib, fib_array_dev, threads, blocks)
 println("Kernel finished.")
 
 fib_array .= fib_array_dev |> Array
