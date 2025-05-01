@@ -111,44 +111,51 @@ end
 
 """
     propagate_gpu!(
-        solver       :: F, 
-        acceleration :: G, 
-        step         :: Float32, 
-        pos_seqs_dev :: CuDeviceArray, 
-        vel_seqs_dev :: CuDeviceArray
-    ) :: Nothing where {F <: Function, G <: Function}
+        problemCount :: Int,
+        dimension    :: Int,
+        t_max        :: Int,
+        step         :: Float32,
+        pos_seqs_dev,
+        vel_seqs_dev
+    ) :: Nothing
 
 TBW
 """
 function propagate_gpu!(
-        # solver       ,# :: F, 
-        # acceleration ,# :: G, 
-        # step         ,# :: Float32, 
-        solver,
-        pos_seqs_dev ,# :: CuDeviceArray{Float32, 3, 1}, 
-        vel_seqs_dev # :: CuDeviceArray{Float32, 3, 1}
-    ) :: Nothing # where {F <: Function, G <: Function}
+        problemCount :: Int,
+        dimension    :: Int,
+        t_max        :: Int,
+        step         :: Float32,
+        pos_seqs_dev,
+        vel_seqs_dev
+    ) :: Nothing 
     problem      = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride       = gridDim().x * blockDim().x
 
-    problemCount = size(pos_seqs_dev, 1)
-    # # dimension  = size(positionSequence, 2) # not actually needed but included for context
-    t_max        = size(pos_seqs_dev, 3)
+    # problemCount, dimension, t_max = size(pos_seqs_dev)
 
-    @views begin 
-        while problem <= problemCount
-            t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
-            while t <= t_max
-                oldPosition = pos_seqs_dev[problem, :, t - 1]
-                oldVelocity = vel_seqs_dev[problem, :, t - 1]
-                newPosition, newVelocity = solver(oldPosition, oldVelocity#= , acceleration, step =#)
-                @cuprintln("Calculated values at time $t on problem $problem on thread ", threadIdx().x)
-    #             pos_seqs_dev[problem, :, t] .= newPosition
-    #             vel_seqs_dev[problem, :, t] .= newVelocity
-                t += 1
+    while problem <= problemCount
+        t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
+        while t <= t_max
+            d = 1
+            while d <= dimension
+                x_old = @inbounds pos_seqs_dev[problem, dimension, t - 1]
+                v_old = @inbounds vel_seqs_dev[problem, dimension, t - 1]
+
+                acc_old = -x_old
+                x_new   = x_old + v_old * step + 0.5 * acc_old * step^2
+                acc_new = -x_new
+                v_new   = v_old + 0.5 * (acc_old + acc_new) * step
+
+                @inbounds pos_seqs_dev[problem, dimension, t - 1] = x_new
+                @inbounds vel_seqs_dev[problem, dimension, t - 1] = v_new
+                d += 1
             end
-            problem += stride
+
+            @cuprintln("Calculated values at time $t on problem $problem on thread ", threadIdx().x)
+            t += 1
         end
+        problem += stride
     end
     return nothing
 end
@@ -183,45 +190,47 @@ function pararealSolution!(
     step = (discretizedDomain[end, 1] - discretizedDomain[begin,1]) / size(discretizedDomain, 1) |> Float32
 
     # put stuff on the gpu
-    problemCount = size(discretizedDomain, 2)
+    problemCount, dimension, t_max = size(pos_seqs)
     pos_seqs_dev = pos_seqs |> cu
     vel_seqs_dev = vel_seqs |> cu
     println("Arrays copied to device.")
 
-    solver(scheme, acc, step) = ((x, v) -> scheme(x, v, acc, step))
-    foo = solver(int_scheme, acceleration, step)
+    # solver(scheme, acc, step) = ((x, v) -> scheme(x, v, acc, step))
+    # foo = solver(int_scheme, acceleration, step)
+
     # optimize the kernel parameters e.g. threads, blocks
     kernel_call = @cuda launch=false propagate_gpu!(
-        # int_scheme, 
-        # acceleration, 
-        # step,
-        foo,
+        problemCount,
+        dimension,
+        t_max,
+        step,
         pos_seqs_dev, 
         vel_seqs_dev
     )
-    printstyled("Kernel successfully compiled", color=:green)
+    printstyled("Kernel successfully compiled\n", color=:green)
     config  = launch_configuration(kernel_call.fun)
     threads = min(problemCount, config.threads)
     blocks  = cld(problemCount, threads)
     println("Evaluating on $blocks blocks and $threads threads per block.")
 
     # execute on the gpu
-    @show Array(vel_seqs_dev[1, :, :])
+    @show vel_seqs[1, :, :]
     CUDA.@sync kernel_call(
-        int_scheme, 
-        acceleration, 
+        problemCount,
+        dimension,
+        t_max,
         step,
         pos_seqs_dev, 
-        vel_seqs_dev; 
-        threads, 
+        vel_seqs_dev,
+        threads,
         blocks
     )
-    # synchronize() # need to sync to make sure velocity_dev is up to date
-    @show Array(vel_seqs_dev[1, :, :])
+    printstyled("Kernel has finished!\n", color=:green)
 
     # pull off the gpu
     pos_seqs .= mapslices(p -> vec.(eachcol(p)), pos_seqs_dev |> Array; dims=1)
     vel_seqs .= mapslices(p -> vec.(eachcol(p)), vel_seqs_dev |> Array; dims=1)
+    @show vel_seqs[1, :, :]
 
     solutionVector = Vector{Solution}(undef, problemCount)
     for i in eachindex(solutionVector)
