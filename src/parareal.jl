@@ -104,7 +104,7 @@ function distribute(
     next_level = myid() == 1 ? MANAGERPOOL : intersect(procs(myid()), DEVPOOL)
     # println("Distributing $(length(problemVector)) problems from ", myid(), " to ", next_level)
     solutionVector = pmap(
-        ivp -> parareal_recursive(
+        ivp -> parareal(
             # distribute! args
             ivp, 
             coarsePropagator,
@@ -121,20 +121,18 @@ function distribute(
 end
 
 """
-    gpu!(
-    acceleration   :: Function, 
-    prop           :: Propagator, 
-    problemVector  :: Vector{SecondOrderIVP}, 
-    solutionVector :: Vector{Solution}
-    ) :: Nothing
+    gpu(
+        problemVector  :: Vector{SecondOrderIVP},
+        prop           :: Propagator
+    ) :: Vector{Solution}
 
 The parallelization scheme to use from the worker processes.
 """
-function gpu!(
+function gpu(
     problemVector  :: Vector{SecondOrderIVP},
-    prop           :: Propagator, 
-    solutionVector :: Vector{Solution}
-    ) :: Nothing
+    prop           :: Propagator
+    # solutionVector :: Vector{Solution}
+    ) :: Vector{Solution}
     # prepare arrays to put data into
     discretizedDomain, positionMatrix, velocityMatrix = kernelPrep(
         problemVector, 
@@ -142,7 +140,7 @@ function gpu!(
     )
     # println("Beginning fine parallel propagation")
     acceleration = problemVector[1].acceleration
-    solutionVector .= pararealSolution!(
+    solutionVector = pararealSolution!(
         prop.propagator,
         acceleration, 
         discretizedDomain .|> Float32, 
@@ -150,37 +148,17 @@ function gpu!(
         velocityMatrix .|> Float32
     )
     # error("STOP")
-    return
+    return solutionVector
 end
-# """
-#     getOffloadingScheme(
-#     devPool          :: CachingPool, 
-#     coarsePropagator :: Propagator, 
-#     finePropagator   :: Propagator,
-#     problemVector    :: Vector{SecondOrderIVP}, 
-#     solutionVector   :: Vector{Solution}
-#     ) :: Tuple{Function, Vector{Any}}
 
-# Determine the offloading scheme to use based on whether or not it's run on the director or worker.
-# """
-# function getOffloadingScheme(
-#     devPool          :: CachingPool, 
-#     coarsePropagator :: Propagator, 
-#     finePropagator   :: Propagator,
-#     problemVector    :: Vector{SecondOrderIVP}, 
-#     solutionVector   :: Vector{Solution}
-#     ) :: Tuple{Function, Vector{Any}}
-#     if myid() == 1
-#         foo = distribute!
-#         args = [devPool, coarsePropagator, finePropagator, problemVector, solutionVector]
-#     else
-#         foo = gpu!
-#         args = [finePropagator, problemVector, solutionVector]
-#     end
-#     return (foo, args)
-# end
+function batchProblems(problemVector, my_worker_pool)
+    batch_size = div(length(problemVector), length(my_worker_pool))
+    # if problemVector does not divide evenly into MANAGERPOOL
+    # Iterators.partition includes a "remainder" partition; see docs for Iterators.partition
+    return Iterators.partition(problemVector, batch_size) .|> collect
+end
 
-function parareal_recursive(
+function parareal(
     ivp              :: SecondOrderIVP, 
     coarsePropagator :: Propagator, 
     finePropagator   :: Propagator;
@@ -189,7 +167,7 @@ function parareal_recursive(
 # ==================================================================================================
     # INITIALIZATION
     # println("Beginning iteration 0 on problem ", ivp.id)
-    rootSolution, problemVector = initializeSubproblems(ivp, coarsePropagator)
+    rootSolution, directorProblemVector = initializeSubproblems(ivp, coarsePropagator)
     predSolution = rootSolution # on iteration 0 predicted solution = root solution
 
     oldSolution                   = rootSolution
@@ -199,10 +177,10 @@ function parareal_recursive(
     newSolution  = rootSolution
 
     initialDiscretization   = coarsePropagator.discretization
-    subSolutionCoarseVector = similar(problemVector, Solution)
-    subSolutionFineVector   = similar(problemVector, Solution)
-    positionCorrectorVector = similar(problemVector, Vector{Float64})
-    velocityCorrectorVector = similar(problemVector, Vector{Float64})
+    subSolutionCoarseVector = similar(directorProblemVector, Solution)
+    subSolutionFineVector   = similar(directorProblemVector, Solution)
+    positionCorrectorVector = similar(directorProblemVector, Vector{Float64})
+    velocityCorrectorVector = similar(directorProblemVector, Vector{Float64})
 
     # for iteration in 1:initialDiscretization # parareal converges in at most
     # INITIALDISCRETIZATION iterations
@@ -219,12 +197,38 @@ function parareal_recursive(
 
 # ==================================================================================================
         # offload and propagate in parallel
-        if myid() in MANAGERPOOL || myid() == 1
             # println("Beginning iteration ", iteration, " on problem ", ivp.id)
-            subSolutionFineVector = distribute(problemVector, coarsePropagator, finePropagator; threshold = threshold)
-        else
-            gpu!(problemVector, finePropagator, subSolutionFineVector)
-        end
+            # subSolutionFineVector = pmap(
+            #     # distribute director problems to managers
+            #     managerProblemVector -> pmap(
+            #         # distributed manager problems to workers
+            #         workerProblemVector -> gpu(
+            #             workerProblemVector,
+            #             finePropagator
+            #         ),
+            #         intersect(procs(myid()), DEVPOOL), # worker ids for that manager
+            #         Iterators.partition(managerProblemVector, batch_size) .|> collect
+            #     )
+            #     # if I'm the director, distribute over the managers
+            #     # if I'm a manager, distribute over the device processes on this machine
+            #     CachingPool(MANAGERPOOL),
+            #     Iterators.partition(directorProblemVector, batch_size) .|> collect
+            # )
+            batched_director_problems = batchProblems(directorProblemVector, MANAGERPOOL)
+            println("Distributing $(length(batched_director_problems)) problem sets from ", myid(), " to ", MANAGERPOOL)
+            manager_solutions = pmap(CachingPool(MANAGERPOOL), batched_director_problems) do managerProblemVector
+                
+                my_worker_pool           = intersect(procs(myid()), DEVPOOL)
+                batched_manager_problems = batchProblems(managerProblemVector, my_worker_pool)
+                println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
+                worker_solutions = pmap(
+                    workerProblemVector -> gpu(workerProblemVector, finePropagator),
+                    CachingPool(my_worker_pool),
+                    batched_manager_problems
+                )
+                return vcat(worker_solutions...)
+            end
+            subSolutionFineVector = vcat(manager_solutions...)
 # ==================================================================================================
         # correction
         # use the values given by the coarse propagator from the previous iteration
@@ -257,7 +261,7 @@ function parareal_recursive(
         if iteration != initialDiscretization # no need for new subproblems after last iteration
             # println("Updating subproblems")
             updateSubproblems!(
-                problemVector, 
+                directorProblemVector, 
                 rootSolution, 
                 ivp.acceleration
             )
@@ -275,7 +279,7 @@ function solve(
     threshold = 10^(-10)
 ) :: Solution
     println("Beginning parareal evaluation")
-    sol = parareal_recursive(ivp, coarse, fine; threshold = threshold)
+    sol = parareal(ivp, coarse, fine; threshold = threshold)
     println("Parareal evaluation finished. Closing cluster.")
     # TODO: print stats e.g. total problems, iterations, steps
     rmprocs(workers())

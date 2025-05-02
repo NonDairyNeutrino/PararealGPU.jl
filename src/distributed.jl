@@ -38,7 +38,7 @@ end
 Spawn manager processes on each remote host.
 """
 function spawnManagers(remoteHostNameVector :: Vector{String}; addlocal :: Bool = false) :: Vector{Int}
-    println("Beginning with remote hosts: ", remoteHostNameVector)
+    println("Beginning with ", addlocal ? "localhost and " : "", "remote hosts: ", remoteHostNameVector)
     # create a worker process on each of remote hosts
     if addlocal
         localManager    = addprocs(1)

@@ -5,12 +5,12 @@ using Plots
 include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
 const nodeVector = String["Electromagnetism"]
-prepCluster(nodeVector)
+prepCluster(nodeVector, addlocal = true)
 
 println("Creating initial value problems")
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
-const COARSEDISCRETIZATION = 8
-const FINEDISCRETIZATION   = 2^10
+const COARSEDISCRETIZATION = 2^4
+const FINEDISCRETIZATION   = 2^4
 
 const COARSEPROPAGATOR = Propagator(symplecticEuler, COARSEDISCRETIZATION) # how many problems / GPU cores
 const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION)   # how many steps on each core / for each problem
