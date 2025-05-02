@@ -21,6 +21,7 @@ struct Host
     workerVector :: Vector{Int}
     devCount :: Int # or Vector{CuDevice} for slight performance increase
     function Host(name, pidVector, devCount)
+        pidVector = 1 in pidVector ? pidVector[2:end] : pidVector
         return new(name, pidVector[1], pidVector[2:end], devCount)
     end
 end
@@ -36,10 +37,14 @@ end
 
 Spawn manager processes on each remote host.
 """
-function spawnManagers(remoteHostNameVector :: Union{Vector{String}, Int}) :: Vector{Int}
+function spawnManagers(remoteHostNameVector :: Vector{String}; addlocal :: Bool = false) :: Vector{Int}
     println("Beginning with remote hosts: ", remoteHostNameVector)
     # create a worker process on each of remote hosts
-    managerVector = addprocs(remoteHostNameVector) # TODO: port to use topology=:master_worker
+    if addlocal
+        localManager    = addprocs(1)
+    end
+    remoteManagerVector = addprocs(remoteHostNameVector)
+    managerVector       = addlocal ? [localManager; remoteManagerVector] : remoteManagerVector
 
     println("Loading PararealGPU.jl on all manager processes")
     @eval @everywhere workers() include("$(pwd())/src/PararealGPU.jl")
@@ -56,7 +61,7 @@ getHDC(_) = getHDC()
 
 Spawn worker processes that will control device usage.
 """
-function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}}
+function spawnWorkers(managerVector :: Vector{Int}; addlocal = false) :: Vector{Tuple{String, Int}}
     println("Loading CUDA on all manager processes")
     @eval @everywhere workers() using CUDA # load CUDA module on each process including master
     printstyled("CUDA loaded on all manager processes\n", color=:green)
@@ -66,7 +71,13 @@ function spawnWorkers(managerVector :: Vector{Int}) :: Vector{Tuple{String, Int}
     hdcVector = pmap(getHDC, managerVector) # evals only on workers
     # spawn processes on remote hosts for each device
     println("Spawning processes for each device.")
-    deviceWorkers = addprocs(hdcVector)
+    if addlocal
+        localWorkers  = addprocs(hdcVector[1][2])
+        remoteWorkers = addprocs(hdcVector[2:end])
+        deviceWorkers = [localWorkers; remoteWorkers]
+    else
+        deviceWorkers = addprocs(hdcVector)
+    end
 
     println("Loading PararealGPU on each worker process")
     @eval @everywhere $deviceWorkers include("$(pwd())/src/PararealGPU.jl")
@@ -80,14 +91,13 @@ end
 
 Bundle the process IDs with the number of devices on each remote host.
 """
-function createHostVector(remoteHostNameVector :: Vector{String}, managerVector :: Vector{Int}, devCountVector :: Vector{Int})
+function createHostVector(hdcVector :: Vector{Tuple{String, Int}}, managerVector :: Vector{Int})
     println("Collecting hosts, processes, and device counts")
     hostVector = similar(managerVector, Host)
     for i in eachindex(hostVector)
-        name          = remoteHostNameVector[i]
-        pidVector     = procs(managerVector[i]) # all pids on same machine as subMasterVector[i]
-        devCount      = devCountVector[i] # devices are indexed at 0
-        hostVector[i] = Host(name, pidVector, devCount)
+        name, devCount = hdcVector[i]
+        pidVector      = procs(managerVector[i]) # all pids on same machine as subMasterVector[i]
+        hostVector[i]  = Host(name, pidVector, devCount)
     end
     println("The following hosts, procs, workers, and devices have been automatically recognized.")
     display(hostVector)
@@ -148,11 +158,11 @@ end
 
 Prepare a cluster and return a pool of device processes.
 """
-function prepCluster(remoteHostNameVector :: Union{Vector{String}, Int}) :: Nothing
-    managerVector  = spawnManagers(remoteHostNameVector)
-    hdcVector      = spawnWorkers(managerVector)
-    devCountVector = getindex.(hdcVector, 2)
-    hostVector     = createHostVector(remoteHostNameVector, managerVector, devCountVector)
+function prepCluster(remoteHostNameVector :: Vector{String}; addlocal = false) :: Nothing
+    managerVector  = spawnManagers(remoteHostNameVector, addlocal = addlocal)
+    hdcVector      = spawnWorkers(managerVector;         addlocal = addlocal)
+    # devCountVector = getindex.(hdcVector, 2)
+    hostVector     = createHostVector(hdcVector, managerVector) # createHostVector(remoteHostNameVector, managerVector, devCountVector)
     assignDevices!(hostVector)
     showDeviceAssignments()
 
