@@ -153,7 +153,7 @@ function propagate_gpu!(
                 d += 1
             end
 
-            @cuprintln("From GPU thread ", threadIdx().x, ": problem $problem($t) has been calculated.")
+            # @cuprintln("From GPU thread ", threadIdx().x, ": problem $problem($t) has been calculated.")
             t += 1
         end
         problem += stride
@@ -163,12 +163,12 @@ end
 
 """
     pararealSolution!(
-        solver            :: F, 
+        int_scheme        :: F, 
         acceleration      :: G, 
         discretizedDomain :: Matrix{T}, 
         pos_seqs          :: Array{T, 3}, 
         vel_seqs          :: Array{T, 3}
-    ) :: Vector{Solution} where {T <: AbstractFloat, F <: Function, G<: Function}
+    ) :: Vector{Solution} where {T <: AbstractFloat, F <: Function, G <: Function}
 
 Optimize hardware usage and execute the kernel.
 """
@@ -194,7 +194,7 @@ function pararealSolution!(
     problemCount, dimension, t_max = size(pos_seqs)
     pos_seqs_dev = pos_seqs |> cu
     vel_seqs_dev = vel_seqs |> cu
-    println("Arrays copied to device.")
+    # println("Arrays copied to device.")
 
     # solver(scheme, acc, step) = ((x, v) -> scheme(x, v, acc, step))
     # foo = solver(int_scheme, acceleration, step)
@@ -208,31 +208,31 @@ function pararealSolution!(
         pos_seqs_dev, 
         vel_seqs_dev
     )
-    printstyled("Kernel successfully compiled\n", color=:green)
+    # printstyled("Kernel successfully compiled\n", color=:green)
     config  = launch_configuration(kernel_call.fun)
     threads = min(problemCount, config.threads)
     blocks  = cld(problemCount, threads)
-    println("Evaluating on $blocks blocks and $threads threads per block.")
+    # println("Evaluating on $blocks blocks and $threads threads per block.")
 
     # execute on the gpu
-    myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
+    # myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
     CUDA.@sync kernel_call(
         problemCount,
         dimension,
         t_max,
         step,
         pos_seqs_dev, 
-        vel_seqs_dev,
-        threads,
+        vel_seqs_dev; # this needs to be a semicolon ";" and not a comma ","
+        threads,      # or else it will run single-threaded for some godforsaken reason
         blocks
     )
-    printstyled("Kernel has finished!\n", color=:green)
+    # printstyled("Kernel has finished!\n", color=:green)
 
     # pull off the gpu
     pos_seqs = Array(pos_seqs_dev)
     vel_seqs = Array(vel_seqs_dev)
 
-    myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
+    # myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
 
     solutionVector = Vector{Solution}(undef, problemCount)
     for problem in 1:problemCount

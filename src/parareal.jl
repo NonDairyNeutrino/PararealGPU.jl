@@ -102,7 +102,7 @@ function distribute(
     threshold = 10^(-10)
     ) :: Vector{Solution}
     next_level = myid() == 1 ? MANAGERPOOL : intersect(procs(myid()), DEVPOOL)
-    println("Distributing $(length(problemVector)) problems from ", myid(), " to ", next_level)
+    # println("Distributing $(length(problemVector)) problems from ", myid(), " to ", next_level)
     solutionVector = pmap(
         ivp -> parareal_recursive(
             # distribute! args
@@ -115,7 +115,7 @@ function distribute(
         # if I'm a manager, distribute over the device processes on this machine
         CachingPool(next_level),
         problemVector;
-        # batch_size = div(length(problemVector), length(next_level)) # load balance
+        batch_size = div(length(problemVector), length(next_level)) # load balance
     )
     return solutionVector
 end
@@ -149,7 +149,7 @@ function gpu!(
         positionMatrix .|> Float32, 
         velocityMatrix .|> Float32
     )
-    error("STOP")
+    # error("STOP")
     return
 end
 # """
@@ -220,7 +220,7 @@ function parareal_recursive(
 # ==================================================================================================
         # offload and propagate in parallel
         if myid() in MANAGERPOOL || myid() == 1
-            println("Beginning iteration ", iteration, " on problem ", ivp.id)
+            # println("Beginning iteration ", iteration, " on problem ", ivp.id)
             subSolutionFineVector = distribute(problemVector, coarsePropagator, finePropagator; threshold = threshold)
         else
             gpu!(problemVector, finePropagator, subSolutionFineVector)
