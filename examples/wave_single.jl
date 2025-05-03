@@ -4,13 +4,13 @@
 using Plots
 include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
-const nodeVector = String["Electromagnetism"]
+const nodeVector = String["Electromagnetism"#= , "StrongForce" =#]
 prepCluster(nodeVector, addlocal = true)
 
 println("Creating initial value problems")
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
-const COARSEDISCRETIZATION = 2^4
-const FINEDISCRETIZATION   = 2^4
+const COARSEDISCRETIZATION = 2^10
+const FINEDISCRETIZATION   = 100 # each step is 1% of the domain
 
 const COARSEPROPAGATOR = Propagator(symplecticEuler, COARSEDISCRETIZATION) # how many problems / GPU cores
 const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION)   # how many steps on each core / for each problem
@@ -28,18 +28,25 @@ end
 
 const INITIALPOSITION = [0.]
 const INITIALVELOCITY = [1.]
-const DOMAIN          = Interval(0., 2^1 * pi)
+const DOMAIN          = Interval(0., 2^6 * pi)
 const IVP             = SecondOrderIVP("0", DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY)
 
 solution = solve(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)
 # TODO: write solutions to a file just in case something goes wrong after this
 
-plot(sin, range(DOMAIN.lb, DOMAIN.ub, COARSEDISCRETIZATION + 1), label = "position - true")
+dom = range(DOMAIN.lb, DOMAIN.ub, COARSEDISCRETIZATION + 1)
+plot(
+    dom, 
+    [sin.(dom) cos.(dom)],
+    label = ["position - true" "velocity - true"]
+)
 plot!(
     solution.domain,
     [solution.positionSequence .|> first, solution.velocitySequence .|> first],
     label = ["position" "velocity"],
     title = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION"
 )
-println("Plot saved at ", pwd(), "/cos.png")
-savefig("cos.png")
+plot_name = "cos_$(COARSEDISCRETIZATION)_$FINEDISCRETIZATION.pdf"
+println("Plot saved at ", pwd(), "/", plot_name)
+savefig(plot_name)
+run(`codium $plot_name`)
