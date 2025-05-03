@@ -166,15 +166,10 @@ function parareal(
     )
 # ==================================================================================================
     # INITIALIZATION
-    # println("Beginning iteration 0 on problem ", ivp.id)
+    print("Beginning iteration 0\r")
     rootSolution, directorProblemVector = initializeSubproblems(ivp, coarsePropagator)
     predSolution = rootSolution # on iteration 0 predicted solution = root solution
-
-    oldSolution                   = rootSolution
-    oldSolution.positionSequence .= zero(oldSolution.positionSequence)
-    oldSolution.velocitySequence .= zero(oldSolution.velocitySequence)
-
-    newSolution  = rootSolution
+    oldSolution  = rootSolution
 
     initialDiscretization   = coarsePropagator.discretization
     subSolutionCoarseVector = similar(directorProblemVector, Solution)
@@ -191,10 +186,10 @@ function parareal(
     # parallelPropagate, args = getOffloadingScheme(devPool, coarsePropagator, finePropagator, subProblemVector, solutionVector)
 # ==================================================================================================
     # BEGIN LOOP
-    while iteration < maxIterations || !hasConverged(oldSolution, newSolution; threshold)
-        iteration   += 1
-        oldSolution  = newSolution
-
+    has_converged = false
+    while !has_converged && iteration < maxIterations 
+        iteration += 1
+        print("Beginning iteration $iteration...")
 # ==================================================================================================
         # offload and propagate in parallel
             # println("Beginning iteration ", iteration, " on problem ", ivp.id)
@@ -215,12 +210,12 @@ function parareal(
             #     Iterators.partition(directorProblemVector, batch_size) .|> collect
             # )
             batched_director_problems = batchProblems(directorProblemVector, MANAGERPOOL)
-            println("Distributing $(length(batched_director_problems)) problem sets from ", myid(), " to ", MANAGERPOOL)
+            # println("Distributing $(length(batched_director_problems)) problem sets from ", myid(), " to ", MANAGERPOOL)
             manager_solutions = pmap(CachingPool(MANAGERPOOL), batched_director_problems) do managerProblemVector
                 
                 my_worker_pool           = intersect(procs(myid()), DEVPOOL)
                 batched_manager_problems = batchProblems(managerProblemVector, my_worker_pool)
-                println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
+                # println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
                 worker_solutions = pmap(
                     workerProblemVector -> gpu(workerProblemVector, finePropagator),
                     CachingPool(my_worker_pool),
@@ -257,6 +252,16 @@ function parareal(
             velocityCorrectorVector
         )
 # ==================================================================================================
+        newSolution = rootSolution
+        has_converged, maxPositionPercentChange, maxVelocityPercentChange = hasConverged(oldSolution, newSolution; threshold)
+        oldSolution = newSolution
+        print(
+            "Finished: log10(max(|%Δposition|)) = ", 
+            round(Int, maxPositionPercentChange |> log10), 
+            ", log10(max(|%Δvelocity|)) = ", 
+            round(Int, maxVelocityPercentChange |> log10), 
+            "\r"
+        )
         # create new sub problems
         if iteration != initialDiscretization # no need for new subproblems after last iteration
             # println("Updating subproblems")
@@ -266,9 +271,13 @@ function parareal(
                 ivp.acceleration
             )
         end
-        newSolution = rootSolution
     end
 # ==================================================================================================
+    if iteration != maxIterations
+        printstyled("\nConvergence achieved. ", color=:green)
+    else
+        printstyled("\nFailed to converge in $maxIterations iterations. ", color=:yellow)
+    end
     return rootSolution
 end
 
@@ -280,7 +289,7 @@ function solve(
 ) :: Solution
     println("Beginning parareal evaluation")
     sol = parareal(ivp, coarse, fine; threshold = threshold)
-    println("Parareal evaluation finished. Closing cluster.")
+    println("Closing cluster.")
     # TODO: print stats e.g. total problems, iterations, steps
     rmprocs(workers())
     return sol
