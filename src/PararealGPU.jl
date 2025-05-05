@@ -11,8 +11,6 @@ export parareal                                # Parareal.jl
 export @everywhere, pmap, myid, CachingPool    # Distributed
 
 using CUDA
-# using Adapt: @adapt_structure
-using LinearAlgebra: norm
 using Distributed
 
 # see distributed.jl/prepCluster
