@@ -151,6 +151,11 @@ function gpu(
     return solutionVector
 end
 
+"""
+    batchProblems(problemVector, my_worker_pool)
+
+TBW
+"""
 function batchProblems(problemVector, my_worker_pool)
     batch_size = div(length(problemVector), length(my_worker_pool))
     # if problemVector does not divide evenly into MANAGERPOOL
@@ -197,6 +202,7 @@ function parareal(
 # ==================================================================================================
     # BEGIN LOOP
     has_converged = false
+    percentage_iterations = maxIterations / 100 > 1 ? floor.(Int, (1:100) * (maxIterations / 100)) : Base.OneTo(100)
     while !has_converged && iteration < maxIterations 
         iteration += 1
         print("Beginning iteration $iteration...")
@@ -264,15 +270,17 @@ function parareal(
         newSolution = rootSolution
         has_converged, maxPositionPercentChange, maxVelocityPercentChange = hasConverged(oldSolution, newSolution; threshold)
         oldSolution = newSolution
-        print(
-            "Finished: log10(max(|%Δposition|)) = ", 
-            round(Int, maxPositionPercentChange |> log10), 
-            ", log10(max(|%Δvelocity|)) = ", 
-            round(Int, maxVelocityPercentChange |> log10), 
-            "\r"
-        )
+        if iteration in percentage_iterations && !iszero(maxPositionPercentChange) && !iszero(maxVelocityPercentChange)
+            print(
+                "Finished: log10(max(|%Δposition|)) = ", 
+                round(Int, maxPositionPercentChange |> log10),
+                ", log10(max(|%Δvelocity|)) = ", 
+                round(Int, maxVelocityPercentChange |> log10), 
+                "\r"
+            )
+        end
         # create new sub problems
-        if iteration != initialDiscretization # no need for new subproblems after last iteration
+        if iteration != initialDiscretization && !has_converged  # no need for new subproblems after last iteration
             # println("Updating subproblems")
             updateSubproblems!(
                 directorProblemVector, 
