@@ -5,7 +5,10 @@
 
 Create subproblems from the given initial value problem and discretization.
 """
-function initializeSubproblems(ivp :: SecondOrderIVP, initialPropagator :: Propagator) :: Tuple{Solution, Vector{SecondOrderIVP}}
+function initializeSubproblems(
+        ivp :: SecondOrderIVP{T}, 
+        initialPropagator :: Propagator
+    ) :: Tuple{Solution, Vector{SecondOrderIVP{T}}} where T <: AbstractFloat
     # create a bunch of sub-intervals on which to parallelize
     subDomainVector = partition(ivp.domain, initialPropagator.discretization)
     # INITIAL PROPAGATION
@@ -14,7 +17,7 @@ function initializeSubproblems(ivp :: SecondOrderIVP, initialPropagator :: Propa
     initialSolution = propagate(ivp, initialPropagator)
 
     # create a bunch of smaller initial value problems that can be solved in parallel
-    subProblemVector = similar(subDomainVector, SecondOrderIVP)
+    subProblemVector = similar(subDomainVector, SecondOrderIVP{T})
     for i in eachindex(subDomainVector)
         id                  = ivp.id * "." * string(i)
         subDomain           = subDomainVector[i]
@@ -30,7 +33,11 @@ end
 
 Update the current set of subproblems with the corrected root solution.
 """
-function updateSubproblems!(subProblemVector :: Vector{SecondOrderIVP}, rootSolution :: Solution, acceleration :: Function)
+function updateSubproblems!(
+        subProblemVector :: Vector{SecondOrderIVP{T}}, 
+        rootSolution :: Solution{T}, 
+        acceleration :: Function
+    ) where T <: AbstractFloat
     subDomainVector = getproperty.(subProblemVector, :domain) # reuse cause sub-domains don't change
     for i in eachindex(subDomainVector)
         id                  = subProblemVector[i].id
@@ -39,7 +46,7 @@ function updateSubproblems!(subProblemVector :: Vector{SecondOrderIVP}, rootSolu
         initialVelocity     = rootSolution.velocitySequence[i] # initial velocity at a point in time
         # TODO: make SecondOrderIVP mutable to avoid allocating new problems
         # id, domain, and acceleration don't change
-        subProblemVector[i] = SecondOrderIVP(id, subDomain, acceleration, initialPosition, initialVelocity)
+        subProblemVector[i] = SecondOrderIVP{T}(id, subDomain, acceleration, initialPosition, initialVelocity)
     end
     return subProblemVector
 end
