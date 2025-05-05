@@ -1,26 +1,32 @@
 """
-    kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Array, Array}
+    kernelPrep(
+        subProblemVector :: Vector{SecondOrderIVP{T}}, 
+        discretization :: Int
+    ) :: Tuple{Matrix{T}, Array{T, 3}, Array{T, 3}} where T <: AbstractFloat
 
 Initializes host-based arrays for the discretized domains, positions, and velocities.
 """
-function kernelPrep(subProblemVector :: Vector{SecondOrderIVP}, discretization :: Int) :: Tuple{Matrix, Array, Array}
+function kernelPrep(
+        subProblemVector :: Vector{SecondOrderIVP{T}}, 
+        discretization :: Int
+    ) :: Tuple{Matrix{T}, Array{T, 3}, Array{T, 3}} where T <: AbstractFloat
     solutionCount     = length(subProblemVector)
     sequenceLength    = discretization
     positionDimension = subProblemVector[1].initialPosition |> length
 
     # port domain bounds to an array, THEN put the whole thing on the device
-    discretizedDomain = zeros(sequenceLength, solutionCount)
+    discretizedDomain = zeros(T, sequenceLength, solutionCount)
     for (i, problem) in enumerate(subProblemVector)
-        discretizedDomain[1, i]   = problem.domain.lb
-        discretizedDomain[end, i] = problem.domain.ub
+        discretizedDomain[begin, i] = problem.domain.lb
+        discretizedDomain[end,   i] = problem.domain.ub
     end
 
     # where to put stuff
     # arrays should be indexed such that elements are in columns for performance
-    position          = zeros(solutionCount, positionDimension, sequenceLength)
+    position          = zeros(T, solutionCount, positionDimension, sequenceLength)
     position[:, :, 1] = getproperty.(subProblemVector, :initialPosition) |> stack
 
-    velocity          = zeros(solutionCount, positionDimension, sequenceLength)
+    velocity          = zeros(T, solutionCount, positionDimension, sequenceLength)
     velocity[:, :, 1] = getproperty.(subProblemVector, :initialVelocity) |> stack
 
     return discretizedDomain, position, velocity
@@ -132,8 +138,6 @@ function propagate_gpu!(
     problem      = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride       = gridDim().x * blockDim().x
 
-    # problemCount, dimension, t_max = size(pos_seqs_dev)
-
     while problem <= problemCount
         t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
         while t <= t_max
@@ -188,12 +192,12 @@ function pararealSolution!(
         dims = 1
     )
     # all problems use same step size
-    step = (discretizedDomain[end, 1] - discretizedDomain[begin,1]) / size(discretizedDomain, 1) |> Float32
+    step = (discretizedDomain[end, 1] - discretizedDomain[begin,1]) / size(discretizedDomain, 1)
 
     # put stuff on the gpu
     problemCount, dimension, t_max = size(pos_seqs)
-    pos_seqs_dev = pos_seqs |> cu
-    vel_seqs_dev = vel_seqs |> cu
+    pos_seqs_dev = pos_seqs |> CuArray
+    vel_seqs_dev = vel_seqs |> CuArray
     # println("Arrays copied to device.")
 
     # solver(scheme, acc, step) = ((x, v) -> scheme(x, v, acc, step))

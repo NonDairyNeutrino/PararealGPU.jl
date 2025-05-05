@@ -51,11 +51,11 @@ end
 Propagate an initial value problem using a given propagation scheme.
 """
 function propagate(
-    ivp :: SecondOrderIVP, 
-    propagator :: Propagator, 
-    positionCorrectorVector :: Vector{Vector{Float64}}, 
-    velocityCorrectorVector :: Vector{Vector{Float64}}
-    ) :: Tuple{Solution, Solution}
+        ivp :: SecondOrderIVP{T}, 
+        propagator :: Propagator, 
+        positionCorrectorVector :: Vector{Vector{T}}, 
+        velocityCorrectorVector :: Vector{Vector{T}}
+    ) :: Tuple{Solution{T}, Solution{T}} where T <: AbstractFloat
     step                = (ivp.domain.ub - ivp.domain.lb) / propagator.discretization
     discretizedDomain   = discretize(ivp.domain, propagator.discretization)
     positionSequence    = similar(discretizedDomain, ivp.initialPosition |> typeof)
@@ -66,7 +66,12 @@ function propagate(
     positionSequence[1] = ivp.initialPosition
     velocitySequence[1] = ivp.initialVelocity
     for i in Iterators.drop(eachindex(positionSequence), 1)
-        positionPrediction[i], velocityPrediction[i] = propagator.propagator(positionSequence[i - 1], velocitySequence[i - 1], ivp.acceleration, step)
+        positionPrediction[i], velocityPrediction[i] = propagator.propagator(
+            positionSequence[i - 1], 
+            velocitySequence[i - 1], 
+            ivp.acceleration, 
+            step
+        )
         positionSequence[i] = positionPrediction[i] + positionCorrectorVector[i - 1]
         velocitySequence[i] = velocityPrediction[i] + velocityCorrectorVector[i - 1]
     end

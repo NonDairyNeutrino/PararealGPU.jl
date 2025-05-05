@@ -21,14 +21,14 @@ const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION)   # how
 
 Generate an acceleration function based on the given wave number.
 """
-@inline function acceleration(position :: V, velocity :: V) :: V where V <: AbstractVector
+@inline function acceleration(position :: V, velocity :: V) :: V where {T <: AbstractFloat, V <: AbstractVector{T}}
     return -position
 end
 end
 
-const INITIALPOSITION = [0.]
-const INITIALVELOCITY = [1.]
-const DOMAIN          = Interval(0., 2^6 * pi)
+const INITIALPOSITION = Float32[0.]
+const INITIALVELOCITY = Float32[1.]
+const DOMAIN          = Interval{Float32}(0, 2^2 * pi)
 const IVP             = SecondOrderIVP("0", DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY)
 
 solution = solve(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)

@@ -1,62 +1,26 @@
-# functionality for the correction phase of the parareal algorithm
-"""
-    correctPosition!(
-    subSolutionFineVector   :: Vector{Solution}, 
-    subSolutionCoarseVector :: Vector{Solution},
-    positionCorrectorVector :: Vector{Vector{Float64}}
-    )
-
-Correct solutions positions.
-"""
-function correctPosition!(
-    subSolutionFineVector   :: Vector{Solution}, 
-    subSolutionCoarseVector :: Vector{Solution},
-    positionCorrectorVector :: Vector{Vector{Float64}}
-    )
-    for i in eachindex(positionCorrectorVector)
-        fineCorrector              = subSolutionFineVector[i].positionSequence[end]
-        coarseCorrector            = subSolutionCoarseVector[i].positionSequence[end]
-        positionCorrectorVector[i] = fineCorrector - coarseCorrector
-    end
-end
-
-"""
-    correctVelocity!(
-    subSolutionFineVector   :: Vector{Solution}, 
-    subSolutionCoarseVector :: Vector{Solution},
-    velocityCorrectorVector :: Vector{Vector{Float64}}
-    )
-
-Correct solutions velocities.
-"""
-function correctVelocity!(
-    subSolutionFineVector   :: Vector{Solution}, 
-    subSolutionCoarseVector :: Vector{Solution},
-    velocityCorrectorVector :: Vector{Vector{Float64}}
-    )
-    for i in eachindex(velocityCorrectorVector)
-        fineCorrector              = subSolutionFineVector[i].velocitySequence[end]
-        coarseCorrector            = subSolutionCoarseVector[i].velocitySequence[end]
-        velocityCorrectorVector[i] = fineCorrector - coarseCorrector
-    end
-end
-
 """
     correct!(
-    subProblemVector        :: Vector{SecondOrderIVP}, 
-    subSolutionFineVector   :: Vector{Solution}, 
-    subSolutionCoarseVector :: Vector{Solution},
-    positionCorrectorVector :: Vector{Vector{Float64}}
-    )
+        subSolutionFineVector   :: Vector{Solution{T}}, 
+        subSolutionCoarseVector :: Vector{Solution{T}},
+        positionCorrectorVector :: Vector{Vector{T}},
+        velocityCorrectorVector :: Vector{Vector{T}}
+    ) :: Nothing where T <: AbstractFloat
 
 Correct solutions positions and velocities.
 """
 function correct!(
-    subSolutionFineVector   :: Vector{Solution}, 
-    subSolutionCoarseVector :: Vector{Solution},
-    positionCorrectorVector :: Vector{Vector{Float64}},
-    velocityCorrectorVector :: Vector{Vector{Float64}}
-    )
-    correctPosition!(subSolutionFineVector, subSolutionCoarseVector, positionCorrectorVector)
-    correctVelocity!(subSolutionFineVector, subSolutionCoarseVector, velocityCorrectorVector)
+        subSolutionFineVector   :: Vector{Solution{T}}, 
+        subSolutionCoarseVector :: Vector{Solution{T}},
+        positionCorrectorVector :: Vector{Vector{T}},
+        velocityCorrectorVector :: Vector{Vector{T}}
+    ) :: Nothing where T <: AbstractFloat
+
+    fineCorrectorVector     = getproperty.(subSolutionFineVector,   :positionSequence) .|> last
+    coarseCorrectorVector   = getproperty.(subSolutionCoarseVector, :positionSequence) .|> last
+    positionCorrectorVector .= fineCorrectorVector .- coarseCorrectorVector
+
+    fineCorrectorVector     = getproperty.(subSolutionFineVector,   :velocitySequence) .|> last
+    coarseCorrectorVector   = getproperty.(subSolutionCoarseVector, :velocitySequence) .|> last
+    velocityCorrectorVector .= fineCorrectorVector .- coarseCorrectorVector
+    return nothing
 end

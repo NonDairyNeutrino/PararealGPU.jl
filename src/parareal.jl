@@ -129,10 +129,10 @@ end
 The parallelization scheme to use from the worker processes.
 """
 function gpu(
-    problemVector  :: Vector{SecondOrderIVP},
+    problemVector  :: Vector{SecondOrderIVP{T}},
     prop           :: Propagator
     # solutionVector :: Vector{Solution}
-    ) :: Vector{Solution}
+    ) :: Vector{Solution{T}} where T <: AbstractFloat
     # prepare arrays to put data into
     discretizedDomain, positionMatrix, velocityMatrix = kernelPrep(
         problemVector, 
@@ -143,9 +143,9 @@ function gpu(
     solutionVector = pararealSolution!(
         prop.propagator,
         acceleration, 
-        discretizedDomain .|> Float32, 
-        positionMatrix .|> Float32, 
-        velocityMatrix .|> Float32
+        discretizedDomain, 
+        positionMatrix, 
+        velocityMatrix
     )
     # error("STOP")
     return solutionVector
@@ -158,12 +158,22 @@ function batchProblems(problemVector, my_worker_pool)
     return Iterators.partition(problemVector, batch_size) .|> collect
 end
 
+"""
+    parareal(
+        ivp              :: SecondOrderIVP{T}, 
+        coarsePropagator :: Propagator, 
+        finePropagator   :: Propagator;
+        threshold = convert(T, 1.0e-10)
+    ) :: Solution{T} where T <: AbstractFloat
+
+Solve the given IVP using the distributed, GPU-based Parareal algorithm.
+"""
 function parareal(
-    ivp              :: SecondOrderIVP, 
-    coarsePropagator :: Propagator, 
-    finePropagator   :: Propagator;
-    threshold = 10^(-10)
-    )
+        ivp              :: SecondOrderIVP{T}, 
+        coarsePropagator :: Propagator, 
+        finePropagator   :: Propagator;
+        threshold = convert(T, 1.0e-10)
+    ) :: Solution{T} where T <: AbstractFloat
 # ==================================================================================================
     # INITIALIZATION
     print("Beginning iteration 0\r")
@@ -172,10 +182,10 @@ function parareal(
     oldSolution  = rootSolution
 
     initialDiscretization   = coarsePropagator.discretization
-    subSolutionCoarseVector = similar(directorProblemVector, Solution)
-    subSolutionFineVector   = similar(directorProblemVector, Solution)
-    positionCorrectorVector = similar(directorProblemVector, Vector{Float64})
-    velocityCorrectorVector = similar(directorProblemVector, Vector{Float64})
+    subSolutionCoarseVector = similar(directorProblemVector, Solution{T})
+    subSolutionFineVector   = similar(directorProblemVector, Solution{T})
+    positionCorrectorVector = similar(directorProblemVector, Vector{T})
+    velocityCorrectorVector = similar(directorProblemVector, Vector{T})
 
     # for iteration in 1:initialDiscretization # parareal converges in at most
     # INITIALDISCRETIZATION iterations
@@ -212,7 +222,6 @@ function parareal(
             batched_director_problems = batchProblems(directorProblemVector, MANAGERPOOL)
             # println("Distributing $(length(batched_director_problems)) problem sets from ", myid(), " to ", MANAGERPOOL)
             manager_solutions = pmap(CachingPool(MANAGERPOOL), batched_director_problems) do managerProblemVector
-                
                 my_worker_pool           = intersect(procs(myid()), DEVPOOL)
                 batched_manager_problems = batchProblems(managerProblemVector, my_worker_pool)
                 # println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
@@ -232,7 +241,7 @@ function parareal(
             # this emulates the coarse propagator also running for each subproblem because the
             # coarse propagator only takes one step
             # the rest of th
-            subSolutionCoarseVector[i] = Solution(Float64[], [pos], [vel])
+            subSolutionCoarseVector[i] = Solution(T[], [pos], [vel])
         end
 
         # println("Calculating corrections")
@@ -281,12 +290,23 @@ function parareal(
     return rootSolution
 end
 
+"""
+    solve(
+        ivp       :: SecondOrderIVP{T},
+        coarse    :: Propagator, 
+        fine      :: Propagator;
+        threshold :: T = convert(T, 1.0e-10)
+) :: Solution{T} where T <: AbstractFloat
+
+Solves the given problem using the given coarse and fine propagators.
+"""
 function solve(
-    ivp :: SecondOrderIVP,
-    coarse :: Propagator, 
-    fine :: Propagator;
-    threshold = 10^(-10)
-) :: Solution
+    ivp       :: SecondOrderIVP{T},
+    coarse    :: Propagator, 
+    fine      :: Propagator;
+    threshold :: T = convert(T, 1.0e-10)
+) :: Solution{T} where T <: AbstractFloat
+    sizeof(T) > 4 && println("Floats are larger than 32 bits. Consider downsizing to increase GPU performance.")
     println("Beginning parareal evaluation")
     sol = parareal(ivp, coarse, fine; threshold = threshold)
     println("Closing cluster.")

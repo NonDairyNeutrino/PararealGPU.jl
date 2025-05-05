@@ -1,11 +1,11 @@
 """
-    Interval(lb, ub)
+    Interval{T <: AbstractFloat}(lb :: T, ub :: T)
 
 An object with lower and upper bounds.
 """
-struct Interval
-    lb :: Float64
-    ub :: Float64
+struct Interval{T <: AbstractFloat}
+    lb :: T
+    ub :: T
 end
 
 """
@@ -16,7 +16,7 @@ An abstract super-type representing a first- or second-order initial value probl
 abstract type InitialValueProblem end
 
 """
-    InitialValueProblem(der, initialValue, domain)
+    InitialValueProblem(der :: Function, initialValue :: Number, domain :: Interval)
 
 An object representing an initial value problem
 """
@@ -28,16 +28,16 @@ end
 IVP1 = FirstOrderIVP # type alias
 
 """
-    SecondOrderIVP(acceleration, initialPosition, initialVelocity, domain)
+    SecondOrderIVP{T <: AbstractFloat}(acceleration, initialPosition, initialVelocity, domain)
 
 An object representing a second-order initial value problem.
 """
-struct SecondOrderIVP <: InitialValueProblem
+struct SecondOrderIVP{T <: AbstractFloat} <: InitialValueProblem
     id              :: String
-    domain          :: Interval
+    domain          :: Interval{T}
     acceleration    :: Function
-    initialPosition :: Vector{Float64}
-    initialVelocity :: Vector{Float64}
+    initialPosition :: Vector{T}
+    initialVelocity :: Vector{T}
 end
 IVP2 = SecondOrderIVP # type alias
 
@@ -46,7 +46,7 @@ IVP2 = SecondOrderIVP # type alias
 
 Structured representation of the solution to a numerical differential equation.
 """
-struct Solution{T <: Real}
+struct Solution{T <: AbstractFloat}
     domain           :: Vector{T}         # time vector
     positionSequence :: Vector{Vector{T}} # time vector of space vectors
     velocitySequence :: Vector{Vector{T}} # time vector of space vectors
@@ -54,10 +54,10 @@ struct Solution{T <: Real}
         domain, 
         positionSequence, 
         velocitySequence = zeros(length(positionSequence) - 1)
-    ) where {T <: Real}
+    ) where T <: AbstractFloat
         return new(domain, positionSequence, velocitySequence)
     end
 end
-function Solution(d :: Vector{T}, ps :: Vector{Vector{T}}, vs :: Vector{Vector{T}}) where {T <: Real}
+function Solution(d :: Vector{T}, ps :: Vector{Vector{T}}, vs :: Vector{Vector{T}}) where {T <: AbstractFloat}
     return Solution{T}(d, ps, vs)
 end
