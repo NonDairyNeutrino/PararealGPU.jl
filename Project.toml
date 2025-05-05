@@ -6,11 +6,9 @@ version = "1.0.0-DEV"
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 
 [compat]
 Distributed = "1.11.0"
-ProgressMeter = "1.10.4"
 julia = "1.10"
 
 [extras]
