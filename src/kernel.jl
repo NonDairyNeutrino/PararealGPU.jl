@@ -149,8 +149,10 @@ function propagate_gpu!(
                 # velocityVerlet TODO: make generalizable if that's even possible
                 acc_old = -x_old
                 x_new   = x_old + v_old * step + 0.5 * acc_old * step^2
+                @cuassert isfinite(x_new) "x_new is not finite (e.g. x = NaN or Inf)"
                 acc_new = -x_new
                 v_new   = v_old + 0.5 * (acc_old + acc_new) * step
+                @cuassert isfinite(v_new) "v_new is not finite (e.g. v = NaN or Inf)"
 
                 @inbounds pos_seqs_dev[problem, dimension, t] = x_new
                 @inbounds vel_seqs_dev[problem, dimension, t] = v_new
@@ -220,16 +222,27 @@ function pararealSolution!(
 
     # execute on the gpu
     # myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
-    CUDA.@sync kernel_call(
-        problemCount,
-        dimension,
-        t_max,
-        step,
-        pos_seqs_dev, 
-        vel_seqs_dev; # this needs to be a semicolon ";" and not a comma ","
-        threads,      # or else it will run single-threaded for some godforsaken reason
-        blocks
-    )
+    try
+        CUDA.@sync kernel_call(
+            problemCount,
+            dimension,
+            t_max,
+            step,
+            pos_seqs_dev, 
+            vel_seqs_dev; # this needs to be a semicolon ";" and not a comma ","
+            threads,      # or else it will run single-threaded for some godforsaken reason
+            blocks
+        )
+    catch e
+        println(
+            """
+            An error occurred on the GPU.  This is probably due to a big step size leading to NaNs.\
+            Consider increasing either of the discretizations or making the domain smaller.\
+            This will be addressed in the future.\
+            """
+        )
+        rethrow()
+    end
     # printstyled("Kernel has finished!\n", color=:green)
 
     # pull off the gpu

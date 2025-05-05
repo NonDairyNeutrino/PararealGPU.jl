@@ -15,10 +15,12 @@ function hasConverged(
         threshold :: T = convert(T, 1.0e-10)
     ) :: Tuple{Bool, T} where T <: AbstractFloat
     # the initial condition never changes so just skip it
-    old_seq             = getproperty(old_sol, seq)[2:end]
-    new_seq             = getproperty(new_sol, seq)[2:end]
-    percentChanges      = ((n, o) -> (n ./ o) .- 1.0).(new_seq, old_seq)
-    maxAbsPercentChange = percentChanges |> stack .|> abs |> maximum
+    old_seq             = getproperty(old_sol, seq)[2:end] |> stack
+    new_seq             = getproperty(new_sol, seq)[2:end] |> stack
+    @assert all(!iszero, old_seq) "Old sequence contains a zero at $(findall(iszero, old_seq)). This is will cause a NaN."
+    maxAbsPercentChange = maximum(@. abs(new_seq / old_seq - convert(T, 1)))
+    @assert !isnan(maxAbsPercentChange) "Somehow maxAbsPercentChange is NaN.  That is not good."
+    iszero(maxAbsPercentChange) && @warn "Solution did not change.  Be weary of these results."
     has_converged       = maxAbsPercentChange <= threshold
     return has_converged, maxAbsPercentChange
 end
