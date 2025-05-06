@@ -4,16 +4,16 @@
 using Plots
 include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
-const nodeVector = String["Electromagnetism"#= , "StrongForce" =#]
+const nodeVector = String["Electromagnetism"]
 prepCluster(nodeVector, addlocal = true)
 
 println("Creating initial value problems")
 # DEFINE THE COARSE AND FINE PROPAGATION SCHEMES
-const COARSEDISCRETIZATION = 2^10
-const FINEDISCRETIZATION   = 100 # each step is 1% of the domain
+const COARSEDISCRETIZATION = 2^16 # how many total problems
+const FINEDISCRETIZATION   = 2^10 # each step is 1% of the domain # how many steps on each core
 
-const COARSEPROPAGATOR = Propagator(symplecticEuler, COARSEDISCRETIZATION) # how many problems / GPU cores
-const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION)   # how many steps on each core / for each problem
+const COARSEPROPAGATOR = Propagator(symplecticEuler, COARSEDISCRETIZATION)
+const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION)
 
 @everywhere begin
 """
@@ -22,13 +22,14 @@ const FINEPROPAGATOR   = Propagator(velocityVerlet,  FINEDISCRETIZATION)   # how
 Generate an acceleration function based on the given wave number.
 """
 @inline function acceleration(position :: V, velocity :: V) :: V where {T <: AbstractFloat, V <: AbstractVector{T}}
-    return -position
+    k = 0.01f0 * pi
+    return -k^2 * position
 end
 end
 
 const INITIALPOSITION = Float32[0.]
 const INITIALVELOCITY = Float32[1.]
-const DOMAIN          = Interval{Float32}(0, 2^2 * pi)
+const DOMAIN          = Interval{Float32}(0.0f0, 10.0f0)
 const IVP             = SecondOrderIVP("0", DOMAIN, acceleration, INITIALPOSITION, INITIALVELOCITY)
 
 solution = solve(IVP, COARSEPROPAGATOR, FINEPROPAGATOR)
@@ -46,7 +47,9 @@ plot!(
     label = ["position" "velocity"],
     title = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION"
 )
-plot_name = "cos_$(COARSEDISCRETIZATION)_$FINEDISCRETIZATION.pdf"
-println("Plot saved at ", pwd(), "/", plot_name)
-savefig(plot_name)
-run(`codium $plot_name`)
+plot_dir  = string(pwd(), "/examples/images/")
+plot_name = "wave_single_$(COARSEDISCRETIZATION)_$FINEDISCRETIZATION.pdf"
+plot_abs_path = plot_dir * plot_name
+println("Plot saved at ", plot_abs_path)
+savefig(plot_abs_path)
+run(`codium $plot_abs_path`)

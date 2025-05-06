@@ -192,53 +192,29 @@ function parareal(
     positionCorrectorVector = similar(directorProblemVector, Vector{T})
     velocityCorrectorVector = similar(directorProblemVector, Vector{T})
 
-    # for iteration in 1:initialDiscretization # parareal converges in at most
-    # INITIALDISCRETIZATION iterations
     iteration        = 0
     maxIterations    = coarsePropagator.discretization
-    
-    # choose whether to parallelize over nodes or GPU
-    # parallelPropagate, args = getOffloadingScheme(devPool, coarsePropagator, finePropagator, subProblemVector, solutionVector)
 # ==================================================================================================
     # BEGIN LOOP
     has_converged = false
     percentage_iterations = maxIterations / 100 > 1 ? floor.(Int, (1:100) * (maxIterations / 100)) : Base.OneTo(100)
     while !has_converged && iteration < maxIterations 
         iteration += 1
-        print("Beginning iteration $iteration...")
 # ==================================================================================================
         # offload and propagate in parallel
-            # println("Beginning iteration ", iteration, " on problem ", ivp.id)
-            # subSolutionFineVector = pmap(
-            #     # distribute director problems to managers
-            #     managerProblemVector -> pmap(
-            #         # distributed manager problems to workers
-            #         workerProblemVector -> gpu(
-            #             workerProblemVector,
-            #             finePropagator
-            #         ),
-            #         intersect(procs(myid()), DEVPOOL), # worker ids for that manager
-            #         Iterators.partition(managerProblemVector, batch_size) .|> collect
-            #     )
-            #     # if I'm the director, distribute over the managers
-            #     # if I'm a manager, distribute over the device processes on this machine
-            #     CachingPool(MANAGERPOOL),
-            #     Iterators.partition(directorProblemVector, batch_size) .|> collect
-            # )
-            batched_director_problems = batchProblems(directorProblemVector, MANAGERPOOL)
-            # println("Distributing $(length(batched_director_problems)) problem sets from ", myid(), " to ", MANAGERPOOL)
-            manager_solutions = pmap(CachingPool(MANAGERPOOL), batched_director_problems) do managerProblemVector
-                my_worker_pool           = intersect(procs(myid()), DEVPOOL)
-                batched_manager_problems = batchProblems(managerProblemVector, my_worker_pool)
-                # println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
-                worker_solutions = pmap(
-                    workerProblemVector -> gpu(workerProblemVector, finePropagator),
-                    CachingPool(my_worker_pool),
-                    batched_manager_problems
-                )
-                return vcat(worker_solutions...)
-            end
-            subSolutionFineVector = vcat(manager_solutions...)
+        batched_director_problems = batchProblems(directorProblemVector, MANAGERPOOL)
+        manager_solutions = pmap(CachingPool(MANAGERPOOL), batched_director_problems) do managerProblemVector
+            my_worker_pool           = intersect(procs(myid()), DEVPOOL)
+            batched_manager_problems = batchProblems(managerProblemVector, my_worker_pool)
+            # println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
+            worker_solutions = pmap(
+                workerProblemVector -> gpu(workerProblemVector, finePropagator),
+                CachingPool(my_worker_pool),
+                batched_manager_problems
+            )
+            return vcat(worker_solutions...)
+        end
+        subSolutionFineVector = vcat(manager_solutions...)
 # ==================================================================================================
         # correction
         # use the values given by the coarse propagator from the previous iteration
@@ -270,13 +246,14 @@ function parareal(
         newSolution = rootSolution
         has_converged, maxPositionPercentChange, maxVelocityPercentChange = hasConverged(oldSolution, newSolution; threshold)
         oldSolution = newSolution
-        if iteration in percentage_iterations && !iszero(maxPositionPercentChange) && !iszero(maxVelocityPercentChange)
+        if #= iteration in percentage_iterations && =# !iszero(maxPositionPercentChange) && !iszero(maxVelocityPercentChange)
             print(
+                "Beginning iteration $iteration...",
                 "Finished: log10(max(|%Δposition|)) = ", 
                 round(Int, maxPositionPercentChange |> log10),
                 ", log10(max(|%Δvelocity|)) = ", 
-                round(Int, maxVelocityPercentChange |> log10), 
-                "\r"
+                round(Int, maxVelocityPercentChange |> log10)
+                # "\r"
             )
         end
         # create new sub problems

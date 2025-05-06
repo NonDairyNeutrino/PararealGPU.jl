@@ -137,6 +137,7 @@ function propagate_gpu!(
     ) :: Nothing 
     problem      = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride       = gridDim().x * blockDim().x
+    k2           = 1.0f0 * CUDA.pi
 
     while problem <= problemCount
         t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
@@ -147,10 +148,10 @@ function propagate_gpu!(
                 v_old = @inbounds vel_seqs_dev[problem, dimension, t - 1]
 
                 # velocityVerlet TODO: make generalizable if that's even possible
-                acc_old = -x_old
+                acc_old = -k2 * x_old
                 x_new   = x_old + v_old * step + 0.5 * acc_old * step^2
                 @cuassert isfinite(x_new) "x_new is not finite (e.g. x = NaN or Inf)"
-                acc_new = -x_new
+                acc_new = -k2 * x_new
                 v_new   = v_old + 0.5 * (acc_old + acc_new) * step
                 @cuassert isfinite(v_new) "v_new is not finite (e.g. v = NaN or Inf)"
 
@@ -218,10 +219,13 @@ function pararealSolution!(
     config  = launch_configuration(kernel_call.fun)
     threads = min(problemCount, config.threads)
     blocks  = cld(problemCount, threads)
-    # println("Evaluating on $blocks blocks and $threads threads per block.")
+    println(
+        "Evaluating $problemCount problems on $blocks blocks and $threads threads per block for ", 
+        problemCount / (blocks * threads), 
+        " problems per thread"
+    )
 
     # execute on the gpu
-    # myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
     try
         CUDA.@sync kernel_call(
             problemCount,
@@ -248,8 +252,6 @@ function pararealSolution!(
     # pull off the gpu
     pos_seqs = Array(pos_seqs_dev)
     vel_seqs = Array(vel_seqs_dev)
-
-    # myid() == 3 && println("problem 1 velocity sequence = ", vel_seqs[1, :, :])
 
     solutionVector = Vector{Solution}(undef, problemCount)
     for problem in 1:problemCount

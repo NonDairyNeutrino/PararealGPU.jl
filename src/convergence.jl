@@ -20,7 +20,7 @@ function hasConverged(
     @assert all(!iszero, old_seq) "Old sequence contains a zero at $(findall(iszero, old_seq)). This is will cause a NaN."
     maxAbsPercentChange = maximum(@. abs(new_seq / old_seq - convert(T, 1)))
     @assert !isnan(maxAbsPercentChange) "Somehow maxAbsPercentChange is NaN.  That is not good."
-    iszero(maxAbsPercentChange) && @warn "Solution did not change.  Be weary of these results."
+    iszero(maxAbsPercentChange) && @warn "\nSolution did not change.  Be weary of these results."
     has_converged       = maxAbsPercentChange <= threshold
     return has_converged, maxAbsPercentChange
 end
@@ -39,8 +39,8 @@ function hasConverged(
         newSolution :: Solution{T}; 
         threshold = convert(T, 1.0e-10)
     ) :: Tuple{Bool, T, T} where T <: AbstractFloat
-    position_has_converged, pos_change = hasConverged(oldSolution, newSolution, :positionSequence)
-    velocity_has_converged, vel_change = hasConverged(oldSolution, newSolution, :velocitySequence)
+    position_has_converged, pos_change = hasConverged(oldSolution, newSolution, :positionSequence, threshold = threshold)
+    velocity_has_converged, vel_change = hasConverged(oldSolution, newSolution, :velocitySequence, threshold = threshold)
     has_converged                      = position_has_converged && velocity_has_converged
     return has_converged, pos_change, vel_change
 end
