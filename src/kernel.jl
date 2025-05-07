@@ -200,6 +200,7 @@ function pararealSolution!(
     )
     # all problems use same step size
     step = (discretizedDomain[end, 1] - discretizedDomain[begin,1]) / size(discretizedDomain, 1)
+    @info "dt/T = $(1/size(discretizedDomain, 1))" maxlog=1
 
     # put stuff on the gpu
     problemCount, dimension, t_max = size(pos_seqs)
