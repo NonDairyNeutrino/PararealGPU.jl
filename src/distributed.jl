@@ -41,9 +41,9 @@ function spawnManagers(remoteHostNameVector :: Vector{String}; addlocal :: Bool 
     println("Beginning with ", addlocal ? "localhost and " : "", "remote hosts: ", remoteHostNameVector)
     # create a worker process on each of remote hosts
     if addlocal
-        localManager    = addprocs(1)
+        localManager    = addprocs(1, exeflags = `-t auto`)
     end
-    remoteManagerVector = addprocs(remoteHostNameVector)
+    remoteManagerVector = addprocs(remoteHostNameVector, exeflags = `-t auto`)
     managerVector       = addlocal ? [localManager; remoteManagerVector] : remoteManagerVector
 
     println("Loading PararealGPU.jl on all manager processes")
@@ -76,11 +76,11 @@ function spawnWorkers(managerVector :: Vector{Int}; addlocal = false) :: Vector{
     # spawn processes on remote hosts for each device
     println("Spawning processes for each device.")
     if addlocal
-        localWorkers  = addprocs(hdcVector[1][2])
-        remoteWorkers = addprocs(hdcVector[2:end])
+        localWorkers  = addprocs(hdcVector[1][2],  exeflags = `-t auto`)
+        remoteWorkers = addprocs(hdcVector[2:end], exeflags = `-t auto`)
         deviceWorkers = [localWorkers; remoteWorkers]
     else
-        deviceWorkers = addprocs(hdcVector)
+        deviceWorkers = addprocs(hdcVector, exeflags = `-t auto`)
     end
 
     println("Loading PararealGPU on each worker process")

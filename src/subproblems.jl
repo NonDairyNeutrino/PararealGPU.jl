@@ -18,7 +18,7 @@ function initializeSubproblems(
 
     # create a bunch of smaller initial value problems that can be solved in parallel
     subProblemVector = similar(subDomainVector, SecondOrderIVP{T})
-    for i in eachindex(subDomainVector)
+    Threads.@threads for i in eachindex(subDomainVector)
         id                  = ivp.id * "." * string(i)
         subDomain           = subDomainVector[i]
         initialPosition     = initialSolution.positionSequence[i]
@@ -39,7 +39,7 @@ function updateSubproblems!(
         acceleration :: Function
     ) where T <: AbstractFloat
     subDomainVector = getproperty.(subProblemVector, :domain) # reuse cause sub-domains don't change
-    for i in eachindex(subDomainVector)
+    Threads.@threads for i in eachindex(subDomainVector)
         id                  = subProblemVector[i].id
         subDomain           = subDomainVector[i]               # domain in time
         initialPosition     = rootSolution.positionSequence[i] # initial position at a point in time

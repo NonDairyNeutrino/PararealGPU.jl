@@ -15,18 +15,18 @@ function kernelPrep(
     positionDimension = subProblemVector[1].initialPosition |> length
 
     # port domain bounds to an array, THEN put the whole thing on the device
-    discretizedDomain = zeros(T, sequenceLength, solutionCount)
-    for (i, problem) in enumerate(subProblemVector)
+    discretizedDomain = Matrix{T}(undef, sequenceLength, solutionCount)
+    Threads.@threads for (i, problem) in collect(enumerate(subProblemVector))
         discretizedDomain[begin, i] = problem.domain.lb
         discretizedDomain[end,   i] = problem.domain.ub
     end
 
     # where to put stuff
     # arrays should be indexed such that elements are in columns for performance
-    position          = zeros(T, solutionCount, positionDimension, sequenceLength)
+    position           = Array{T, 3}(undef, solutionCount, positionDimension, sequenceLength)
     position[:, :, 1] = getproperty.(subProblemVector, :initialPosition) |> stack
 
-    velocity          = zeros(T, solutionCount, positionDimension, sequenceLength)
+    velocity           = Array{T, 3}(undef, solutionCount, positionDimension, sequenceLength)
     velocity[:, :, 1] = getproperty.(subProblemVector, :initialVelocity) |> stack
 
     return discretizedDomain, position, velocity
@@ -168,7 +168,6 @@ function propagate_gpu!(
                 @inbounds vel_seqs_dev[problem, dimension, t] = v_new
                 d += 1
             end
-
             # @cuprintln("From GPU thread ", threadIdx().x, ": problem $problem($t) has been calculated.")
             t += 1
         end
@@ -205,7 +204,7 @@ function pararealSolution!(
     )
     # all problems use same step size
     step = (discretizedDomain[end, 1] - discretizedDomain[begin,1]) / size(discretizedDomain, 1)
-    @info "dt/T = $(1/size(discretizedDomain, 1))" maxlog=1
+    # @info "dt/T = $(1/size(discretizedDomain, 1))" maxlog=1
 
     # put stuff on the gpu
     problemCount, dimension, t_max = size(pos_seqs)
@@ -260,11 +259,11 @@ function pararealSolution!(
     # printstyled("Kernel has finished!\n", color=:green)
 
     # pull off the gpu
-    pos_seqs = Array(pos_seqs_dev)
-    vel_seqs = Array(vel_seqs_dev)
+    pos_seqs .= Array(pos_seqs_dev)
+    vel_seqs .= Array(vel_seqs_dev)
 
     solutionVector = Vector{Solution}(undef, problemCount)
-    for problem in 1:problemCount
+    Threads.@threads for problem in eachindex(solutionVector)
         dom     = discretizedDomain[:, problem]
         pos_seq = collect.(eachcol(pos_seqs[problem, :, :]))
         vel_seq = collect.(eachcol(vel_seqs[problem, :, :]))

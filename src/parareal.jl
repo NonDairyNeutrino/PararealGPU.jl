@@ -218,7 +218,7 @@ function parareal(
 
         # go straight to gpu, do not pass manager
         batched_worker_problems = batchProblems(directorProblemVector, DEVPOOL)
-        subSolutionFineVector = pmap(
+        subSolutionFineVector .= pmap(
             workerProblemVector -> gpu(workerProblemVector, finePropagator), 
             CachingPool(DEVPOOL), 
             batched_worker_problems
@@ -226,7 +226,7 @@ function parareal(
 # ==================================================================================================
         # correction
         # use the values given by the coarse propagator from the previous iteration
-        for (i, (pos, vel)) in enumerate(zip(predSolution.positionSequence[2:end], predSolution.velocitySequence[2:end]))
+        Threads.@threads for (i, (pos, vel)) in collect(enumerate(zip(predSolution.positionSequence[2:end], predSolution.velocitySequence[2:end])))
             # correct! only needs the "last" value in the sequence, so just wrap the value in the an array
             # this emulates the coarse propagator also running for each subproblem because the
             # coarse propagator only takes one step
@@ -256,8 +256,7 @@ function parareal(
         oldSolution = newSolution
         if #= iteration in percentage_iterations && =# !iszero(maxPositionPercentChange) && !iszero(maxVelocityPercentChange)
             print(
-                "Beginning iteration $iteration...",
-                "Finished: log10(max(|%Δposition|)) = ", 
+                "Finished iteration $iteration: log10(max(|%Δposition|)) = ", 
                 round(Int, maxPositionPercentChange |> log10),
                 ", log10(max(|%Δvelocity|)) = ", 
                 round(Int, maxVelocityPercentChange |> log10),

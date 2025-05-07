@@ -15,7 +15,7 @@ Partition an interval into a given number of mostly disjoint sub-domains.
 function partition(domain :: Interval{T}, discretization :: Int) :: Vector{Interval} where T <: AbstractFloat
     subdomains = Vector{Interval{T}}(undef, discretization)
     step       = (domain.ub - domain.lb) / discretization
-    for i in 0:discretization - 1
+    Threads.@threads for i in 0:discretization - 1
         subdomains[i + 1] = Interval{T}(domain.lb + i * step, domain.lb + (i + 1) * step)
     end
     return subdomains
