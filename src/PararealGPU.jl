@@ -3,12 +3,8 @@ Parareal.jl provides functionality to solve an initial value problem in parallel
 """
 module PararealGPU
 
-export euler, symplecticEuler, velocityVerlet  # integration.jl
-export Interval, FirstOrderIVP, SecondOrderIVP # ivp.jl
-export Propagator
-export prepCluster, getHDC, solve              # distributed.jl
-export parareal                                # Parareal.jl
-export @everywhere, pmap, myid, CachingPool    # Distributed
+export solve                                     # parareal.jl
+export euler, symplecticEuler, velocityVerlet    # integration.jl
 
 using CUDA
 using Distributed

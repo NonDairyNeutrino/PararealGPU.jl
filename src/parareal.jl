@@ -181,7 +181,7 @@ function parareal(
     ) :: Solution{T} where T <: AbstractFloat
 # ==================================================================================================
     # INITIALIZATION
-    print("Beginning iteration 0\r")
+    println("Beginning iteration 0")
     rootSolution, directorProblemVector = initializeSubproblems(ivp, coarsePropagator)
     predSolution = rootSolution # on iteration 0 predicted solution = root solution
     oldSolution  = rootSolution
@@ -252,8 +252,8 @@ function parareal(
                 "Finished: log10(max(|%Δposition|)) = ", 
                 round(Int, maxPositionPercentChange |> log10),
                 ", log10(max(|%Δvelocity|)) = ", 
-                round(Int, maxVelocityPercentChange |> log10)
-                # "\r"
+                round(Int, maxVelocityPercentChange |> log10),
+                "\n"
             )
         end
         # create new sub problems
@@ -268,34 +268,66 @@ function parareal(
     end
 # ==================================================================================================
     if iteration != maxIterations
-        printstyled("\nConvergence achieved. ", color=:green)
+        printstyled("\nConvergence achieved in $iteration iterations.\n", color=:green)
     else
-        printstyled("\nFailed to converge in $maxIterations iterations. ", color=:yellow)
+        printstyled("\nFailed to converge in $maxIterations iterations.\n", color=:yellow)
     end
     return rootSolution
 end
 
 """
     solve(
-        ivp       :: SecondOrderIVP{T},
-        coarse    :: Propagator, 
-        fine      :: Propagator;
-        threshold :: T = convert(T, 1.0e-10)
-) :: Solution{T} where T <: AbstractFloat
+        nodeVector           :: Vector{String},
+        coarseIntegrator     :: Function,
+        coarseDiscretization :: Int,
+        fineIntegrator       :: Function,
+        fineDiscretization   :: Int,
+        acc                  :: Function,
+        lowerBound           :: T,
+        upperBound           :: T,
+        initialPosition      :: Vector{T},
+        initialVelocity      :: Vector{T};
+        addlocal             :: Bool = false,
+        threshold            :: T    = convert(T, 10)
+    ) :: Solution{T} where T <: AbstractFloat
 
 Solves the given problem using the given coarse and fine propagators.
 """
 function solve(
-    ivp       :: SecondOrderIVP{T},
-    coarse    :: Propagator, 
-    fine      :: Propagator;
-    threshold :: T = convert(T, 1.0e-10)
-) :: Solution{T} where T <: AbstractFloat
-    sizeof(T) > 4 && println("Floats are larger than 32 bits. Consider downsizing to increase GPU performance.")
-    println("Beginning parareal evaluation")
-    sol = parareal(ivp, coarse, fine; threshold = threshold)
+        nodeVector           :: Vector{String},
+        coarseIntegrator     :: Function,
+        coarseDiscretization :: Int,
+        fineIntegrator       :: Function,
+        fineDiscretization   :: Int,
+        acc                  :: Function,
+        lowerBound           :: T,
+        upperBound           :: T,
+        initialPosition      :: Vector{T},
+        initialVelocity      :: Vector{T};
+        addlocal             :: Bool = false,
+        threshold            :: T    = convert(T, 10)
+    ) :: Solution{T} where T <: AbstractFloat
+    sizeof(T) > 4 && @warn "Floats are larger than 32 bits. Consider downsizing to increase GPU performance." T
+
+    prepCluster(nodeVector, addlocal = addlocal)
+    @info "Creating initial value problems"
+    coarse = Propagator(coarseIntegrator, coarseDiscretization)
+    fine   = Propagator(fineIntegrator,  fineDiscretization)
+
+    # redefine and distribute to allow the user to stipulate a generic function
+    # but have the underlying implementation specialize on floats and vectors
+    function acceleration(
+            position :: Vector{T}, velocity :: Vector{T}
+        ) :: Vector{T} where T <: AbstractFloat
+        return acc(position, velocity)
+    end
+    domain = Interval{T}(lowerBound, upperBound)
+    ivp    = SecondOrderIVP("0", domain, acceleration, initialPosition, initialVelocity)
+
+    @info "Beginning parareal evaluation"
+    @time "Parareal evaluation took " sol = parareal(ivp, coarse, fine; threshold = threshold)
     println("Closing cluster.")
-    # TODO: print stats e.g. total problems, iterations, steps
+    # TODO: write solutions to a file just in case something goes wrong after this
     rmprocs(workers())
     return sol
 end
