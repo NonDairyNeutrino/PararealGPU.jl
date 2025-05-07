@@ -202,19 +202,27 @@ function parareal(
         iteration += 1
 # ==================================================================================================
         # offload and propagate in parallel
-        batched_director_problems = batchProblems(directorProblemVector, MANAGERPOOL)
-        manager_solutions = pmap(CachingPool(MANAGERPOOL), batched_director_problems) do managerProblemVector
-            my_worker_pool           = intersect(procs(myid()), DEVPOOL)
-            batched_manager_problems = batchProblems(managerProblemVector, my_worker_pool)
-            # println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
-            worker_solutions = pmap(
-                workerProblemVector -> gpu(workerProblemVector, finePropagator),
-                CachingPool(my_worker_pool),
-                batched_manager_problems
-            )
-            return vcat(worker_solutions...)
-        end
-        subSolutionFineVector = vcat(manager_solutions...)
+        # batched_director_problems = batchProblems(directorProblemVector, MANAGERPOOL)
+        # manager_solutions = pmap(CachingPool(MANAGERPOOL), batched_director_problems) do managerProblemVector
+        #     my_worker_pool           = intersect(procs(myid()), DEVPOOL)
+        #     batched_manager_problems = batchProblems(managerProblemVector, my_worker_pool)
+        #     # println("Distributing $(length(batched_manager_problems)) problem sets from ", myid(), " to ", my_worker_pool)
+        #     worker_solutions = pmap(
+        #         workerProblemVector -> gpu(workerProblemVector, finePropagator),
+        #         CachingPool(my_worker_pool),
+        #         batched_manager_problems
+        #     )
+        #     return vcat(worker_solutions...)
+        # end
+        # subSolutionFineVector = vcat(manager_solutions...)
+
+        # go straight to gpu, do not pass manager
+        batched_worker_problems = batchProblems(directorProblemVector, DEVPOOL)
+        subSolutionFineVector = pmap(
+            workerProblemVector -> gpu(workerProblemVector, finePropagator), 
+            CachingPool(DEVPOOL), 
+            batched_worker_problems
+        ) |> (vv -> vcat(vv...))
 # ==================================================================================================
         # correction
         # use the values given by the coarse propagator from the previous iteration
