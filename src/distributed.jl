@@ -52,7 +52,11 @@ function spawnManagers(remoteHostNameVector :: Vector{String}; addlocal :: Bool 
     printstyled("PararealGPU.jl loaded on all manager processes\n", color=:green)
     return managerVector
 end
-
+# TODO: just use multiple threads per manager process and change the device for each thread
+# then the managers asynchronously tell the gpus what to do
+# syncrhonize
+# send the director the results
+# see https://cuda.juliagpu.org/stable/usage/multigpu/#Scenario-2:-Multiple-GPUs-per-process
 getHDC()  = (gethostname(), ndevices())
 getHDC(_) = getHDC()
 
