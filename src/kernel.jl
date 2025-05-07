@@ -137,11 +137,15 @@ function propagate_gpu!(
     ) :: Nothing 
     problem      = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride       = gridDim().x * blockDim().x
-    k2           = 1.0f0 * CUDA.pi
+    k2           = (1.0f0 * CUDA.pi)^2
+    halfstep     = 0.5 * step
+    halfstep2    = 0.5 * step^2
 
     while problem <= problemCount
         t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
         while t <= t_max
+            # TODO: see if this d loop can be replaced with SIMD on the whole vector
+            # broadcasting on a view forces data allocation
             d = 1
             while d <= dimension
                 x_old = @inbounds pos_seqs_dev[problem, dimension, t - 1]
@@ -149,10 +153,10 @@ function propagate_gpu!(
 
                 # velocityVerlet TODO: make generalizable if that's even possible
                 acc_old = -k2 * x_old
-                x_new   = x_old + v_old * step + 0.5 * acc_old * step^2
+                x_new   = x_old + v_old*step + halfstep2*acc_old
                 @cuassert isfinite(x_new) "x_new is not finite (e.g. x = NaN or Inf)"
                 acc_new = -k2 * x_new
-                v_new   = v_old + 0.5 * (acc_old + acc_new) * step
+                v_new   = v_old + halfstep * (acc_old + acc_new)
                 @cuassert isfinite(v_new) "v_new is not finite (e.g. v = NaN or Inf)"
 
                 @inbounds pos_seqs_dev[problem, dimension, t] = x_new
@@ -219,11 +223,11 @@ function pararealSolution!(
     config  = launch_configuration(kernel_call.fun)
     threads = min(problemCount, config.threads)
     blocks  = cld(problemCount, threads)
-    println(
+    @info string(
         "Evaluating $problemCount problems on $blocks blocks and $threads threads per block for ", 
         problemCount / (blocks * threads), 
         " problems per thread"
-    )
+    ) maxlog=1
 
     # execute on the gpu
     try
