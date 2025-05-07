@@ -137,9 +137,14 @@ function propagate_gpu!(
     ) :: Nothing 
     problem      = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride       = gridDim().x * blockDim().x
-    k2           = (1.0f0 * CUDA.pi)^2
-    halfstep     = 0.5 * step
-    halfstep2    = 0.5 * step^2
+    # FIXME: FOR SOME REAOSN GOD ONLY KNOWS, THE AMPLITUDE OF THE POSITION WAVE IS CONSTANT IN TIME
+    # BUT DEPENDS ON THE WAVE WAVE NUMBER I.E. IT DOES NOT DECAY IN TIME BUT DECREASES WITH A HIGHER
+    # FREQUENCY
+    k            = 1.0f0 # * pi
+    k2           = k^2
+    halfstep     = 0.5f0 * step
+    halfstep2    = halfstep * step
+    acc(r)       = -k2 * r
 
     while problem <= problemCount
         t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
@@ -152,10 +157,10 @@ function propagate_gpu!(
                 v_old = @inbounds vel_seqs_dev[problem, dimension, t - 1]
 
                 # velocityVerlet TODO: make generalizable if that's even possible
-                acc_old = -k2 * x_old
+                acc_old = acc(x_old)
                 x_new   = x_old + v_old*step + halfstep2*acc_old
                 @cuassert isfinite(x_new) "x_new is not finite (e.g. x = NaN or Inf)"
-                acc_new = -k2 * x_new
+                acc_new = acc(x_new)
                 v_new   = v_old + halfstep * (acc_old + acc_new)
                 @cuassert isfinite(v_new) "v_new is not finite (e.g. v = NaN or Inf)"
 
