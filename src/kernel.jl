@@ -65,34 +65,10 @@ function propagate_gpu!(
     acc(r)       = -k2 * r
 
     while problem <= problemCount
-        # t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
-        # while t <= t_max
-        #     # TODO: see if this d loop can be replaced with SIMD on the whole vector
-        #     # broadcasting on a view forces data allocation
-        #     d = 1
-        #     while d <= dimension
-        #         x_old = @inbounds pos_seqs_dev[problem, dimension, t - 1]
-        #         v_old = @inbounds vel_seqs_dev[problem, dimension, t - 1]
-
-        #         # velocityVerlet TODO: make generalizable if that's even possible
-        #         acc_old = acc(x_old)
-        #         x_new   = x_old + v_old*step + halfstep2*acc_old
-        #         @cuassert isfinite(x_new) "x_new is not finite (e.g. x = NaN or Inf)"
-        #         acc_new = acc(x_new)
-        #         v_new   = v_old + halfstep * (acc_old + acc_new)
-        #         @cuassert isfinite(v_new) "v_new is not finite (e.g. v = NaN or Inf)"
-
-        #         @inbounds pos_seqs_dev[problem, dimension, t] = x_new
-        #         @inbounds vel_seqs_dev[problem, dimension, t] = v_new
-        #         d += 1
-        #     end
-        #     # @cuprintln("From GPU thread ", threadIdx().x, ": problem $problem($t) has been calculated.")
-        #     t += 1
-        # end
         dim = 1
         while dim <= dimension
-            pos = pos_seqs_dev[problem, dim, 1]
-            vel = vel_seqs_dev[problem, dim, 1]
+            pos = @inbounds pos_seqs_dev[problem, dim, 1]
+            vel = @inbounds vel_seqs_dev[problem, dim, 1]
 
             t = 1
             while t <= t_max
@@ -102,13 +78,15 @@ function propagate_gpu!(
                 vel    += halfstep * (acc_old + acc_new)
                 t += 1
             end
-            @cuassert isfinite(pos) "final position is NaN or infinite"
-            pos_seqs_dev[problem, dim, 2] = pos
-            @cuassert isfinite(vel) "final velocity is NaN or infinite"
-            vel_seqs_dev[problem, dim, 2] = vel
+
+            # @cuassert isfinite(pos) "final position is NaN or infinite"
+            @inbounds pos_seqs_dev[problem, dim, 2] = pos
+            # @cuassert isfinite(vel) "final velocity is NaN or infinite"
+            @inbounds vel_seqs_dev[problem, dim, 2] = vel
 
             dim += 1
         end
+        # @cuprintln("From GPU block.thread $(blockIdx().x).$(threadIdx().x): problem $problem has been calculated.")
         problem += stride
     end
     return nothing
