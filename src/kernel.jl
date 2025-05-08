@@ -230,7 +230,7 @@ function pararealSolution!(
     blocks  = cld(problemCount, threads)
     @info string(
         "Evaluating $problemCount problems on $blocks blocks and $threads threads per block for ", 
-        problemCount / (blocks * threads), 
+        round(problemCount / (blocks * threads), sigdigits=2), 
         " problems per thread"
     ) maxlog=1
 
