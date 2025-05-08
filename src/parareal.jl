@@ -181,7 +181,7 @@ function parareal(
     ) :: Solution{T} where T <: AbstractFloat
 # ==================================================================================================
     # INITIALIZATION
-    println("Beginning iteration 0")
+    @info "Beginning iteration 0"
     rootSolution, directorProblemVector = initializeSubproblems(ivp, coarsePropagator)
     predSolution = rootSolution # on iteration 0 predicted solution = root solution
     oldSolution  = rootSolution
@@ -218,6 +218,7 @@ function parareal(
 
         # go straight to gpu, do not pass manager
         batched_worker_problems = batchProblems(directorProblemVector, DEVPOOL)
+        @info "$(sizeof(first(batched_worker_problems)) / 1000^2) MB of problems will be sent to each of the $(length(DEVPOOL)) workers each iteration." maxlog=1
         subSolutionFineVector .= pmap(
             workerProblemVector -> gpu(workerProblemVector, finePropagator), 
             CachingPool(DEVPOOL), 
