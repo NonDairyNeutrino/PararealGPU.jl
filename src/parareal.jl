@@ -147,7 +147,6 @@ function gpu(
         positionMatrix, 
         velocityMatrix
     )
-    # error("STOP")
     return solutionVector
 end
 
