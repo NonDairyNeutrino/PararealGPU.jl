@@ -17,9 +17,9 @@ function hasConverged(
     # the initial condition never changes so just skip it
     old_seq             = getproperty(old_sol, seq)[2:end] |> stack
     new_seq             = getproperty(new_sol, seq)[2:end] |> stack
-    @assert all(!iszero, old_seq) "Old sequence contains $(count(iszero, old_seq)) zeros. This is will cause a NaN."
+    @assert all(!iszero, old_seq) "Old sequence contains $(count(iszero, old_seq)) zeros, first at $(findfirst(iszero, old_seq)). This is will cause a NaN."
     maxAbsPercentChange = maximum(@. abs(new_seq / old_seq - convert(T, 1)))
-    @assert !isnan(maxAbsPercentChange) "Somehow maxAbsPercentChange is NaN.  That is not good."
+    @assert isfinite(maxAbsPercentChange) "Some change is either NaN or infinite."
     iszero(maxAbsPercentChange) && @warn "\nSolution did not change.  Be weary of these results."
     has_converged       = maxAbsPercentChange <= threshold
     return has_converged, maxAbsPercentChange

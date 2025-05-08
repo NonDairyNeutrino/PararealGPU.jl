@@ -147,6 +147,7 @@ function gpu(
         positionMatrix, 
         velocityMatrix
     )
+    @info "Parareal evaluation complete.  Sending $(round(sizeof(solutionVector) / 1000^2, sigdigits=2)) MB vector of solutions to up." maxlog=1
     return solutionVector
 end
 

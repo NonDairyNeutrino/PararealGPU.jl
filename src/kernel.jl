@@ -10,12 +10,12 @@ function kernelPrep(
         subProblemVector :: Vector{SecondOrderIVP{T}}, 
         discretization :: Int
     ) :: Tuple{Matrix{T}, Array{T, 3}, Array{T, 3}} where T <: AbstractFloat
-    solutionCount     = length(subProblemVector)
-    sequenceLength    = discretization
-    positionDimension = subProblemVector[1].initialPosition |> length
+    solutionCount = length(subProblemVector)
+    t_max         = discretization
+    dimension     = subProblemVector[1].initialPosition |> length
 
     # port domain bounds to an array, THEN put the whole thing on the device
-    discretizedDomain = Matrix{T}(undef, sequenceLength, solutionCount)
+    discretizedDomain = Matrix{T}(undef, t_max, solutionCount)
     Threads.@threads for (i, problem) in collect(enumerate(subProblemVector))
         discretizedDomain[begin, i] = problem.domain.lb
         discretizedDomain[end,   i] = problem.domain.ub
@@ -23,97 +23,15 @@ function kernelPrep(
 
     # where to put stuff
     # arrays should be indexed such that elements are in columns for performance
-    position           = Array{T, 3}(undef, solutionCount, positionDimension, sequenceLength)
+    # 2 comes from the fact that these arrays are only storing the initial and final values
+    position          = Array{T, 3}(undef, solutionCount, dimension, 2)
     position[:, :, 1] = getproperty.(subProblemVector, :initialPosition) |> stack
 
-    velocity           = Array{T, 3}(undef, solutionCount, positionDimension, sequenceLength)
+    velocity          = Array{T, 3}(undef, solutionCount, dimension, 2)
     velocity[:, :, 1] = getproperty.(subProblemVector, :initialVelocity) |> stack
 
     return discretizedDomain, position, velocity
 end
-
-# """
-#     discretizeKernel!(domainPointVector :: S, step :: T) where {S, T}
-
-# Fill discretized domain with middle elements.
-# """
-# function discretizeKernel!(domainPointVector :: S, step :: T) where {S, T}
-#     # why did I call it "domainPointVector"? Cause it's a vector of the points in the domain
-#     # is that a particularly intuitive name? I don't know.
-#     # what I do know is that domainPointVector takes the form 
-#     # [lower bound, 0.0, 0.0, ... , 0.0, upper bound]
-#     # why is it like that? So the gpu can purely just calculate and assign to an array index
-#     # and not have to do any allocations
-#     discretization = length(domainPointVector)
-#     @inbounds lowerBound     = domainPointVector[begin]
-#     i = 2
-#     while i <= (discretization - 1) # for i in 2:(discretization - 1)
-#         @inbounds domainPointVector[i] = lowerBound + (i - 1) * step
-#         i += 1
-#     end
-#     return nothing
-# end
-
-# """
-#     propagateKernel!(solver :: F, acceleration :: G, step :: H, positionSequence :: J, velocitySequence :: K) :: Nothing where {F, G, H, J, K}
-
-# Propagates on the device.
-# """
-# function propagateKernel!(
-#     solver           :: F, 
-#     acceleration     :: G, 
-#     step             :: H, 
-#     positionSequence :: J, 
-#     velocitySequence :: K
-#     ) :: Nothing where {F, G, H, J, K}
-#     discretization = size(positionSequence, 2) # number of positions in the sequence
-#     @cuprintln("fine discretization = ", discretization)
-
-#     i = 2
-#     @views while i <= discretization # for i in 2:discretization
-#         @inbounds oldPosition = positionSequence[:, i - 1]
-#         @inbounds oldVelocity = velocitySequence[:, i - 1]
-#         # @cushow oldVelocity
-#         newPosition, newVelocity = solver(oldPosition, oldVelocity, acceleration, step)
-#         # @cushow newVelocity
-#         @inbounds positionSequence[:, i] .= newPosition
-#         @inbounds velocitySequence[:, i] .= newVelocity
-#         i += 1
-#     end
-#     return nothing
-# end
-
-# """
-#     kernel!(solver, acceleration, discretizedDomain, position, velocity) :: Nothing
-
-# CUDA kernel to propagate the subProblems.
-# """
-# function kernel!(solver, acceleration, discretizedDomain, position, velocity) :: Nothing
-#     discretization, solutionCount = size(discretizedDomain)
-#     index         = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-#     stride        = gridDim().x * blockDim().x
-#     i = index
-#     @views while i <= solutionCount # for i = index:stride:solutionCount
-#         domainPointVector = discretizedDomain[:, i]
-#         lowerBound        = domainPointVector[begin]
-#         upperBound        = domainPointVector[end]
-#         step              = (upperBound - lowerBound) / discretization
-
-#         # indexing follows [# of problems, vector dimension, FINEDISCRETIZATION]
-#         positionSequence = position[i, :, :]
-#         velocitySequence = velocity[i, :, :]
-
-#         @cuprintln("discretizing")
-#         # these kernel calls also execute asynchronously!
-#         #= CUDA.@sync =# discretizeKernel!(domainPointVector, step)
-#         @cuprintln("propagating")
-#         #= CUDA.@sync =# propagateKernel!(solver, acceleration, step, positionSequence, velocitySequence)
-#         @cuprintln("done propagating")
-#         # synchronize()
-#         i += stride
-#     end
-#     return nothing
-# end
 
 """
     propagate_gpu!(
@@ -147,29 +65,49 @@ function propagate_gpu!(
     acc(r)       = -k2 * r
 
     while problem <= problemCount
-        t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
-        while t <= t_max
-            # TODO: see if this d loop can be replaced with SIMD on the whole vector
-            # broadcasting on a view forces data allocation
-            d = 1
-            while d <= dimension
-                x_old = @inbounds pos_seqs_dev[problem, dimension, t - 1]
-                v_old = @inbounds vel_seqs_dev[problem, dimension, t - 1]
+        # t = 2 # t = 1 is the initialvalues, which are already populated in the arrays
+        # while t <= t_max
+        #     # TODO: see if this d loop can be replaced with SIMD on the whole vector
+        #     # broadcasting on a view forces data allocation
+        #     d = 1
+        #     while d <= dimension
+        #         x_old = @inbounds pos_seqs_dev[problem, dimension, t - 1]
+        #         v_old = @inbounds vel_seqs_dev[problem, dimension, t - 1]
 
-                # velocityVerlet TODO: make generalizable if that's even possible
-                acc_old = acc(x_old)
-                x_new   = x_old + v_old*step + halfstep2*acc_old
-                @cuassert isfinite(x_new) "x_new is not finite (e.g. x = NaN or Inf)"
-                acc_new = acc(x_new)
-                v_new   = v_old + halfstep * (acc_old + acc_new)
-                @cuassert isfinite(v_new) "v_new is not finite (e.g. v = NaN or Inf)"
+        #         # velocityVerlet TODO: make generalizable if that's even possible
+        #         acc_old = acc(x_old)
+        #         x_new   = x_old + v_old*step + halfstep2*acc_old
+        #         @cuassert isfinite(x_new) "x_new is not finite (e.g. x = NaN or Inf)"
+        #         acc_new = acc(x_new)
+        #         v_new   = v_old + halfstep * (acc_old + acc_new)
+        #         @cuassert isfinite(v_new) "v_new is not finite (e.g. v = NaN or Inf)"
 
-                @inbounds pos_seqs_dev[problem, dimension, t] = x_new
-                @inbounds vel_seqs_dev[problem, dimension, t] = v_new
-                d += 1
+        #         @inbounds pos_seqs_dev[problem, dimension, t] = x_new
+        #         @inbounds vel_seqs_dev[problem, dimension, t] = v_new
+        #         d += 1
+        #     end
+        #     # @cuprintln("From GPU thread ", threadIdx().x, ": problem $problem($t) has been calculated.")
+        #     t += 1
+        # end
+        dim = 1
+        while dim <= dimension
+            pos = pos_seqs_dev[problem, dim, 1]
+            vel = vel_seqs_dev[problem, dim, 1]
+
+            t = 1
+            while t <= t_max
+                acc_old = acc(pos)
+                pos    += vel*step + halfstep2*acc_old
+                acc_new = acc(pos)
+                vel    += halfstep * (acc_old + acc_new)
+                t += 1
             end
-            # @cuprintln("From GPU thread ", threadIdx().x, ": problem $problem($t) has been calculated.")
-            t += 1
+            @cuassert isfinite(pos) "final position is NaN or infinite"
+            pos_seqs_dev[problem, dim, 2] = pos
+            @cuassert isfinite(vel) "final velocity is NaN or infinite"
+            vel_seqs_dev[problem, dim, 2] = vel
+
+            dim += 1
         end
         problem += stride
     end
@@ -207,7 +145,8 @@ function pararealSolution!(
     # @info "dt/T = $(1/size(discretizedDomain, 1))" maxlog=1
 
     # put stuff on the gpu
-    problemCount, dimension, t_max = size(pos_seqs)
+    t_max        = size(discretizedDomain, 1)
+    problemCount, dimension, _ = size(pos_seqs)
     pos_seqs_dev = pos_seqs |> CuArray
     vel_seqs_dev = vel_seqs |> CuArray
     # println("Arrays copied to device.")
@@ -260,6 +199,7 @@ function pararealSolution!(
 
     # pull off the gpu
     pos_seqs .= Array(pos_seqs_dev)
+    @assert all(isfinite, pos_seqs) "$(count(!isfinite, pos_seqs)) infs or nans in pos_seqs.  First at $(findfirst(!isfinite, pos_seqs))"
     vel_seqs .= Array(vel_seqs_dev)
 
     solutionVector = Vector{Solution}(undef, problemCount)
