@@ -8,7 +8,7 @@ using .PararealGPU
 const NODEVECTOR           = String["Electromagnetism"]
 # DEFINE COMPUTATIONAL PARAMETERS
 const COARSEINTEGRATOR     = symplecticEuler
-const COARSEDISCRETIZATION = 2^13                        # how many total problems
+const COARSEDISCRETIZATION = 2^10                        # how many total problems
 const FINEINTEGRATOR       = velocityVerlet
 const FINEDISCRETIZATION   = 2^10                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
 # DEFINE MODEL PARAMETERS
@@ -19,7 +19,8 @@ const DOMAINLOWERBOUND     = 0.0f0
 const INITIALPOSITION      = Float32[0.]
 const INITIALVELOCITY      = Float32[1.]
 
-upperBoundVector = collect(2.0f0 * pi .* (1.0f0:10.0f0))
+upperBoundMultiplierVector = collect(2:2:6)
+upperBoundVector = upperBoundMultiplierVector .* Float32(pi) 
 pos_error        = similar(upperBoundVector, Float32)
 vel_error        = similar(upperBoundVector, Float32)
 for (i, DOMAINUPPERBOUND) in enumerate(upperBoundVector)
@@ -40,7 +41,7 @@ for (i, DOMAINUPPERBOUND) in enumerate(upperBoundVector)
         INITIALPOSITION,
         INITIALVELOCITY;
         addlocal  = true,
-        threshold = 10.0f0
+        threshold = 1.0f0
     )
 
     # first element is the initial value which always matches the true version
@@ -53,12 +54,15 @@ end
 plot(
     upperBoundVector,
     [pos_error, vel_error],
-    title = "%error - coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION",
-    label = ["position" "velocity"]
+    title  = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION",
+    label  = ["position" "velocity"],
+    xlabel = "Final time",
+    ylabel = "\n%Error",
+    xticks = (upperBoundVector, upperBoundMultiplierVector)
 )
 plot_dir  = string(pwd(), "/analysis/images/")
 plot_name = "stability_cd$(COARSEDISCRETIZATION)_fd$(FINEDISCRETIZATION).pdf"
 plot_abs_path = plot_dir * plot_name
 println("Plot saved at ", plot_abs_path)
 savefig(plot_abs_path)
-# run(`codium $plot_abs_path`)
+run(`codium $plot_abs_path`)
