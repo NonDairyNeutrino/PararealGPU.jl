@@ -18,7 +18,7 @@ end
 Calculate the relative change between two vector sequences.
 """
 function getRelativeChange(old_seq :: Vector{Vector{T}}, new_seq :: Vector{Vector{T}}) :: T where T <: AbstractFloat
-    return getRelativeChange.(old_seq, new_seq) |> norm
+    return getRelativeChange.(old_seq, new_seq) |> maximum
 end
 
 """
