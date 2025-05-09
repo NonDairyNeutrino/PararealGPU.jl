@@ -18,7 +18,9 @@ end
 Calculate the relative change between two vector sequences.
 """
 function getRelativeChange(old_seq :: Vector{Vector{T}}, new_seq :: Vector{Vector{T}}) :: T where T <: AbstractFloat
-    return getRelativeChange.(old_seq, new_seq) |> maximum
+    changeVector = getRelativeChange.(old_seq, new_seq)
+    # @show changeVector
+    return maximum(changeVector)
 end
 
 """
@@ -40,11 +42,11 @@ function hasConverged(
     # the initial condition never changes so just skip it
     old_seq             = getproperty(old_sol, seq)[2:end]
     new_seq             = getproperty(new_sol, seq)[2:end]
-    # @assert all(!iszero, old_seq) "Old sequence contains $(count(iszero, old_seq)) zeros, first at $(findfirst(iszero, old_seq)). This is will cause a NaN."
+    @assert all(!iszero, old_seq) "Old sequence contains $(count(iszero, old_seq)) zeros, first at $(findfirst(iszero, old_seq)). This is will cause a NaN."
     relativeChange      = getRelativeChange(old_seq, new_seq)
     @assert isfinite(relativeChange) "Some change is either NaN or infinite."
     iszero(relativeChange) && @warn "\nSolution did not change.  Be weary of these results."
-    has_converged       = relativeChange <= threshold
+    has_converged       = #= all(isapprox.(old_seq, new_seq, rtol=threshold)) =# relativeChange <= threshold
     return has_converged, relativeChange
 end
 

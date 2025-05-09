@@ -42,12 +42,17 @@ for (i, DOMAINUPPERBOUND) in enumerate(upperBoundVector)
         INITIALPOSITION,
         INITIALVELOCITY;
         addlocal  = true,
-        threshold = 1.0f-7 # eps(Float32) == 1.1920929f-7
+        # eps(Float32) == 1.1920929f-7
+        # sqrt(eps(Float32)) == 0.00034526698f0
+        # this mirrors isapprox()
+        threshold = sqrt(eps(Float32))
     )
     # first element is the initial value which always matches the true version
-    pos_error[i] = getRelativeChange(TRUEPOSITION[2:end], solution.positionSequence[2:end])
+
+    pos_error[i] = maximum(norm.(solution.positionSequence[2:end] .- TRUEPOSITION[2:end]) ./ norm.(TRUEPOSITION[2:end]) .- 1)
+    # error("CATCH ME")
     # @assert !isnan(pos_error[i]) "$(count(isnan, percent_errors)) NaNs found; first at $(findfirst(isnan, percent_errors))"
-    vel_error[i] = getRelativeChange(TRUEVELOCITY[2:end], solution.velocitySequence[2:end])
+    vel_error[i] = maximum(norm.(solution.velocitySequence[2:end] .- TRUEVELOCITY[2:end]) ./ norm.(TRUEVELOCITY[2:end]) .- 1)
     @info "Finished with " pos_error[i] vel_error[i]
 end
 
@@ -57,7 +62,7 @@ plot(
     title  = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION",
     label  = ["position" "velocity"],
     xlabel = "t_f/pi",
-    ylabel = "\n%Error",
+    ylabel = "\nmax %error",
     xticks = (upperBoundVector, upperBoundMultiplierVector),
     ylims  = (0, Inf)
 )
