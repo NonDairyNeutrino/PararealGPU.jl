@@ -24,10 +24,11 @@ upperBoundVector = upperBoundMultiplierVector .* Float32(pi)
 pos_error        = similar(upperBoundVector, Float32)
 vel_error        = similar(upperBoundVector, Float32)
 for (i, DOMAINUPPERBOUND) in enumerate(upperBoundVector)
-    TRUEDOMAIN                 = range(DOMAINLOWERBOUND, DOMAINUPPERBOUND, COARSEDISCRETIZATION + 1)
-    TRUEPOSITION, TRUEVELOCITY = sin.(WAVENUMBER .* TRUEDOMAIN), cos.(WAVENUMBER .* TRUEDOMAIN)
+    TRUEDOMAIN   = range(DOMAINLOWERBOUND, DOMAINUPPERBOUND, COARSEDISCRETIZATION + 1)
+    TRUEPOSITION = (t -> [sin(t)]).(WAVENUMBER .* TRUEDOMAIN)
+    TRUEVELOCITY = (t -> [cos(t)]).(WAVENUMBER .* TRUEDOMAIN)
 
-    @info "Beginning " DOMAINUPPERBOUND
+    @info "Beginning t_f = $(upperBoundMultiplierVector[i])pi"
 
     solution = solve(
         NODEVECTOR,
@@ -41,13 +42,12 @@ for (i, DOMAINUPPERBOUND) in enumerate(upperBoundVector)
         INITIALPOSITION,
         INITIALVELOCITY;
         addlocal  = true,
-        threshold = 1.0f0
+        threshold = 1.0f-10
     )
-
     # first element is the initial value which always matches the true version
-    pos_error[i] = maximum(only.(solution.positionSequence)[2:end] ./ TRUEPOSITION[2:end] .- 1)
+    pos_error[i] = getRelativeChange(TRUEPOSITION[2:end], solution.positionSequence[2:end])
     # @assert !isnan(pos_error[i]) "$(count(isnan, percent_errors)) NaNs found; first at $(findfirst(isnan, percent_errors))"
-    vel_error[i] = Base.rest(only.(solution.velocitySequence) ./ TRUEVELOCITY .- 1) |> maximum
+    vel_error[i] = getRelativeChange(TRUEVELOCITY[2:end], solution.velocitySequence[2:end])
     @info "Finished with " pos_error[i] vel_error[i]
 end
 
@@ -56,9 +56,10 @@ plot(
     [pos_error, vel_error],
     title  = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION",
     label  = ["position" "velocity"],
-    xlabel = "Final time",
+    xlabel = "t_f/pi",
     ylabel = "\n%Error",
-    xticks = (upperBoundVector, upperBoundMultiplierVector)
+    xticks = (upperBoundVector, upperBoundMultiplierVector),
+    ylims  = (0, Inf)
 )
 plot_dir  = string(pwd(), "/analysis/images/")
 plot_name = "stability_cd$(COARSEDISCRETIZATION)_fd$(FINEDISCRETIZATION).pdf"

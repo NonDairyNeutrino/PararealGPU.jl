@@ -5,6 +5,7 @@ module PararealGPU
 
 export solve                                     # parareal.jl
 export euler, symplecticEuler, velocityVerlet    # integration.jl
+export getRelativeChange                         # convergence.jl
 
 using CUDA
 using Distributed

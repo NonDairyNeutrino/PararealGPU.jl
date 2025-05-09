@@ -9,9 +9,9 @@ using .PararealGPU
 const NODEVECTOR           = String["Electromagnetism"]
 # DEFINE COMPUTATIONAL PARAMETERS
 const COARSEINTEGRATOR     = symplecticEuler
-const COARSEDISCRETIZATION = 2^10                        # how many total problems
+const COARSEDISCRETIZATION = 2^10 # 2^10 = 1024, 2^15 = 32768, 2^20 = 1048576 # how many total problems
 const FINEINTEGRATOR       = velocityVerlet
-const FINEDISCRETIZATION   = 2^8                         # 2^7 = 128 steps -> each step is ~1% of the domain
+const FINEDISCRETIZATION   = 2^10  # 2^7 = 128 steps -> each step is ~1% of the domain
 # DEFINE MODEL PARAMETERS
 const WAVENUMBER           = 1.0f0 # * pi
 # ACCELERATION(r, v)         = -WAVENUMBER^2 * r         # simple harmonic oscillator
@@ -34,7 +34,7 @@ solution = solve(
     INITIALPOSITION,
     INITIALVELOCITY;
     addlocal  = true,
-    threshold = 10.0f0
+    threshold = 1.0f-10
 )
 
 include("plot_and_save.jl")
