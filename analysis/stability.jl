@@ -42,7 +42,7 @@ for (i, DOMAINUPPERBOUND) in enumerate(upperBoundVector)
         INITIALPOSITION,
         INITIALVELOCITY;
         addlocal  = true,
-        threshold = 1.0f-10
+        threshold = 1.0f-7 # eps(Float32) == 1.1920929f-7
     )
     # first element is the initial value which always matches the true version
     pos_error[i] = getRelativeChange(TRUEPOSITION[2:end], solution.positionSequence[2:end])

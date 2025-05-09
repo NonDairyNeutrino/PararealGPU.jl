@@ -1,5 +1,16 @@
 using LinearAlgebra: norm
-using Statistics: mean
+"""
+    getRelativeChange(old_vec :: Vector{T}, new_vec :: Vector{T}) :: T where T <: AbstractFloat
+
+Calculate the relative change between two vectors.
+Results near zero when close, and 1 when far.  Bounded between 0 and 1.
+"""
+function getRelativeChange(old_vec :: Vector{T}, new_vec :: Vector{T}) :: T where T <: AbstractFloat
+    distance  = norm(new_vec - old_vec)
+    indicator = norm(new_vec + old_vec)
+    relative_change = distance / indicator
+    return relative_change
+end
 
 """
     getrelativeChange(old_seq :: Vector{Vector{T}}, new_seq :: Vector{Vector{T}}) :: T where T <: AbstractFloat
@@ -7,13 +18,7 @@ using Statistics: mean
 Calculate the relative change between two vector sequences.
 """
 function getRelativeChange(old_seq :: Vector{Vector{T}}, new_seq :: Vector{Vector{T}}) :: T where T <: AbstractFloat
-    # indicator of relative change with arithmetic mean change
-    # why arithmetic mean?  Cause it naturally extends to vectors, whereas others don't.
-    # https://en.wikipedia.org/wiki/Relative_change#Indicators_of_relative_change
-    disstanceVector = norm.(new_seq .- old_seq) 
-    indicatorVector = norm.(mean([new_seq, old_seq]))
-    relative_change = maximum(disstanceVector ./ indicatorVector)
-    return relative_change
+    return getRelativeChange.(old_seq, new_seq) |> norm
 end
 
 """

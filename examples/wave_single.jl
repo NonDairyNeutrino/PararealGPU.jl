@@ -34,7 +34,7 @@ solution = solve(
     INITIALPOSITION,
     INITIALVELOCITY;
     addlocal  = true,
-    threshold = 1.0f-10
+    threshold = 1.0f-7
 )
 
 include("plot_and_save.jl")
