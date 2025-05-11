@@ -33,6 +33,7 @@ IVP1 = FirstOrderIVP # type alias
 An object representing a second-order initial value problem.
 """
 struct SecondOrderIVP{T <: AbstractFloat} <: InitialValueProblem
+    # TODO: make mutable to only change the fields instead of creating new ones every time
     id              :: String
     domain          :: Interval{T}
     acceleration    :: Function
@@ -47,6 +48,7 @@ IVP2 = SecondOrderIVP # type alias
 Structured representation of the solution to a numerical differential equation.
 """
 struct Solution{T <: AbstractFloat}
+    # TODO: make mutable to only change the fields instead of creating new ones every time
     domain           :: Vector{T}         # time vector
     positionSequence :: Vector{Vector{T}} # time vector of space vectors
     velocitySequence :: Vector{Vector{T}} # time vector of space vectors

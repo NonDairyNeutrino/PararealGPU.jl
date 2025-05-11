@@ -33,6 +33,21 @@ function kernelPrep(
     return discretizedDomain, position, velocity
 end
 
+function kernelPrep!(
+        subProblemVector :: Vector{SecondOrderIVP{T}},
+        timeMatrix       :: Matrix{T},
+        positionArray    :: Array{T, 3},
+        velocityArray    :: Array{T, 3}
+    ) :: Nothing where T <: AbstractFloat
+
+    timeMatrix[begin,   :] .= (p -> p.domain.lb).(subProblemVector)
+    timeMatrix[end,     :] .= (p -> p.domain.ub).(subProblemVector)
+
+    positionArray[:, :, 1] .= getproperty.(subProblemVector, :initialPosition) |> stack |> permutedims
+    velocityArray[:, :, 1] .= getproperty.(subProblemVector, :initialVelocity) |> stack |> permutedims
+    return nothing
+end
+
 """
     propagate_gpu!(
         problemCount :: Int,

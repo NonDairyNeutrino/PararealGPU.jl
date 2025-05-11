@@ -147,7 +147,7 @@ function gpu(
         positionMatrix, 
         velocityMatrix
     )
-    @info "Parareal evaluation complete.  Sending $(round(sizeof(solutionVector) / 1000^2, sigdigits=2)) MB vector of solutions to up." maxlog=1
+    @info "Parareal evaluation complete.  Sending $(round(sizeof(solutionVector) / 1000^2, sigdigits=2)) MB vector of solutions." maxlog=1
     return solutionVector
 end
 
@@ -177,7 +177,8 @@ function parareal(
         ivp              :: SecondOrderIVP{T}, 
         coarsePropagator :: Propagator, 
         finePropagator   :: Propagator;
-        threshold = convert(T, 1.0e-10)
+        threshold        :: T = convert(T, 1.0e-10),
+        localonly        :: Bool = false
     ) :: Solution{T} where T <: AbstractFloat
 # ==================================================================================================
     # INITIALIZATION
@@ -191,6 +192,15 @@ function parareal(
     subSolutionFineVector   = similar(directorProblemVector, Solution{T})
     positionCorrectorVector = similar(directorProblemVector, Vector{T})
     velocityCorrectorVector = similar(directorProblemVector, Vector{T})
+
+    # pre-allocate arrays for if localonly
+    # can't put in if block for scope
+    problemCount  = length(directorProblemVector)
+    t_max         = finePropagator.discretization
+    dimension     = ivp.initialPosition |> first |> length
+    timeMatrix    = Matrix{T}(undef, t_max, problemCount)
+    positionArray = Array{T, 3}(undef, problemCount, dimension, 2) # 2 for only the initial and final values
+    velocityArray = Array{T, 3}(undef, problemCount, dimension, 2)
 
     iteration        = 0
     maxIterations    = coarsePropagator.discretization
@@ -217,13 +227,24 @@ function parareal(
         # subSolutionFineVector = vcat(manager_solutions...)
 
         # go straight to gpu, do not pass manager
-        batched_worker_problems = batchProblems(directorProblemVector, DEVPOOL)
-        @info "$(sizeof(first(batched_worker_problems)) / 1000^2) MB of problems will be sent to each of the $(length(DEVPOOL)) workers each iteration." maxlog=1
-        subSolutionFineVector .= pmap(
-            workerProblemVector -> gpu(workerProblemVector, finePropagator), 
-            CachingPool(DEVPOOL), 
-            batched_worker_problems
-        ) |> (vv -> vcat(vv...))
+        if localonly
+            kernelPrep!(directorProblemVector, timeMatrix, positionArray, velocityArray)
+            subSolutionFineVector .= pararealSolution!(
+                finePropagator.propagator,
+                ivp.acceleration, 
+                timeMatrix, 
+                positionArray, 
+                velocityArray
+            )
+        else
+            batched_worker_problems = batchProblems(directorProblemVector, DEVPOOL)
+            @info "$(sizeof(first(batched_worker_problems)) / 1000^2) MB of problems will be sent to each of the $(length(DEVPOOL)) workers each iteration." maxlog=1
+            subSolutionFineVector .= pmap(
+                workerProblemVector -> gpu(workerProblemVector, finePropagator), 
+                CachingPool(DEVPOOL), 
+                batched_worker_problems
+            ) |> (vv -> vcat(vv...))
+        end
 # ==================================================================================================
         # correction
         # use the values given by the coarse propagator from the previous iteration
@@ -313,11 +334,12 @@ function solve(
         initialPosition      :: Vector{T},
         initialVelocity      :: Vector{T};
         addlocal             :: Bool = false,
+        localonly            :: Bool = false,
         threshold            :: T    = convert(T, 10)
     ) :: Solution{T} where T <: AbstractFloat
     sizeof(T) > 4 && @warn "Floats are larger than 32 bits. Consider downsizing to increase GPU performance." T
 
-    prepCluster(nodeVector, addlocal = addlocal)
+    !localonly && prepCluster(nodeVector, addlocal = addlocal)
     @info "Creating initial value problems"
     coarse = Propagator(coarseIntegrator, coarseDiscretization)
     fine   = Propagator(fineIntegrator,  fineDiscretization)
@@ -333,9 +355,9 @@ function solve(
     ivp    = SecondOrderIVP("0", domain, acceleration, initialPosition, initialVelocity)
 
     @info "Beginning parareal evaluation"
-    @time "Parareal evaluation took " sol = parareal(ivp, coarse, fine; threshold = threshold)
+    @time "Parareal evaluation took " sol = parareal(ivp, coarse, fine; threshold = threshold, localonly = localonly)
     println("Closing cluster.")
     # TODO: write solutions to a file just in case something goes wrong after this
-    rmprocs(workers())
+    !localonly && rmprocs(workers())
     return sol
 end
