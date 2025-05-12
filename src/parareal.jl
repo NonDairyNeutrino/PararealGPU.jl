@@ -277,12 +277,13 @@ function parareal(
         has_converged, maxPositionPercentChange, maxVelocityPercentChange = hasConverged(oldSolution, newSolution; threshold)
         oldSolution = newSolution
         if #= iteration in percentage_iterations && =# !iszero(maxPositionPercentChange) && !iszero(maxVelocityPercentChange)
-            print(
-                "Finished iteration $iteration: log10(max(|%Δposition|)) = ", 
+            @info string(
+                "Finished iteration $iteration at ",
+                round(Dates.now(), Dates.Minute),
+                ": log10(max(|%Δposition|)) = ", 
                 round(Int, maxPositionPercentChange |> log10),
                 ", log10(max(|%Δvelocity|)) = ", 
-                round(Int, maxVelocityPercentChange |> log10),
-                "\n"
+                round(Int, maxVelocityPercentChange |> log10)
             )
         end
         # create new sub problems

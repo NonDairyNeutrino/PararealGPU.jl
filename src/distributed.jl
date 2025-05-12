@@ -38,7 +38,7 @@ end
 Spawn manager processes on each remote host.
 """
 function spawnManagers(remoteHostNameVector :: Vector{String}; addlocal :: Bool = false) :: Vector{Int}
-    println("Beginning with ", addlocal ? "localhost and " : "", "remote hosts: ", remoteHostNameVector)
+    @info string("Beginning with ", addlocal ? "localhost and " : "", "remote hosts: ", remoteHostNameVector)
     # create a worker process on each of remote hosts
     if addlocal
         localManager    = addprocs(1, exeflags = `-t auto`)
@@ -46,7 +46,7 @@ function spawnManagers(remoteHostNameVector :: Vector{String}; addlocal :: Bool 
     remoteManagerVector = addprocs(remoteHostNameVector, exeflags = `-t auto`)
     managerVector       = addlocal ? [localManager; remoteManagerVector] : remoteManagerVector
 
-    println("Loading PararealGPU.jl on all manager processes")
+    @info string("Loading PararealGPU.jl on all manager processes")
     @eval @everywhere workers() include("$(pwd())/src/PararealGPU.jl")
     @eval @everywhere workers() using .PararealGPU
     printstyled("PararealGPU.jl loaded on all manager processes\n", color=:green)
@@ -66,15 +66,15 @@ getHDC(_) = getHDC()
 Spawn worker processes that will control device usage.
 """
 function spawnWorkers(managerVector :: Vector{Int}; addlocal = false) :: Vector{Tuple{String, Int}}
-    println("Loading CUDA on all manager processes")
+    @info string("Loading CUDA on all manager processes")
     @eval @everywhere workers() using CUDA # load CUDA module on each process including master
     printstyled("CUDA loaded on all manager processes\n", color=:green)
 
     # hostDeviceCountVector
-    println("Getting number of devices on each host")
+    @info string("Getting number of devices on each host")
     hdcVector = pmap(getHDC, managerVector) # evals only on workers
     # spawn processes on remote hosts for each device
-    println("Spawning processes for each device.")
+    @info string("Spawning processes for each device.")
     if addlocal
         localWorkers  = addprocs(hdcVector[1][2],  exeflags = `-t auto`)
         remoteWorkers = addprocs(hdcVector[2:end], exeflags = `-t auto`)
@@ -83,7 +83,7 @@ function spawnWorkers(managerVector :: Vector{Int}; addlocal = false) :: Vector{
         deviceWorkers = addprocs(hdcVector, exeflags = `-t auto`)
     end
 
-    println("Loading PararealGPU on each worker process")
+    @info string("Loading PararealGPU on each worker process")
     @eval @everywhere $deviceWorkers include("$(pwd())/src/PararealGPU.jl")
     @eval @everywhere $deviceWorkers using .PararealGPU
     printstyled("PararealGPU loaded on all worker processes.\n", color=:green)
@@ -96,14 +96,14 @@ end
 Bundle the process IDs with the number of devices on each remote host.
 """
 function createHostVector(hdcVector :: Vector{Tuple{String, Int}}, managerVector :: Vector{Int})
-    println("Collecting hosts, processes, and device counts")
+    @info string("Collecting hosts, processes, and device counts")
     hostVector = similar(managerVector, Host)
     for i in eachindex(hostVector)
         name, devCount = hdcVector[i]
         pidVector      = procs(managerVector[i]) # all pids on same machine as subMasterVector[i]
         hostVector[i]  = Host(name, pidVector, devCount)
     end
-    println("The following hosts, procs, workers, and devices have been automatically recognized.")
+    @info string("The following hosts, procs, workers, and devices have been automatically recognized.")
     display(hostVector)
     return hostVector
 end
@@ -131,14 +131,14 @@ function assignDevices!(hostVector :: Vector{Host}) :: Nothing
     device 1 on host Y to pid 4, 
     etc.
     =#
-    println("Assigning devices to processes")
+    @info string("Assigning devices to processes")
     @eval @everywhere using CUDA
     for host in hostVector
         name         = host.name
         workerVector = host.workerVector
         devIDVector  = 0:host.devCount-1
         for (worker, dev) in zip(workerVector, devIDVector)
-            println("      Assigning device $dev to process $worker on host $name")
+            @info string("      Assigning device $dev to process $worker on host $name")
             # assign device to process pid
             remote_do(device!, worker, dev)
         end
@@ -152,8 +152,8 @@ end
 Show which device each process has for use.
 """
 function showDeviceAssignments() :: Nothing
-    println("Confirming device assignemnt")
-    @everywhere workers() println("proc ", myid(), " has device ", deviceid(device()), " on host ", gethostname())
+    @info string("Confirming device assignemnt")
+    @everywhere workers() @info string("proc ", myid(), " has device ", deviceid(device()), " on host ", gethostname())
     return nothing
 end
 
