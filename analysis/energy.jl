@@ -17,9 +17,9 @@ using .PararealGPU
 const NODEVECTOR           = String["Electromagnetism"]
 # DEFINE COMPUTATIONAL PARAMETERS
 const COARSEINTEGRATOR     = symplecticEuler
-# const COARSEDISCRETIZATION = 2^15                        # how many total problems
+const COARSEDISCRETIZATION = 2^10                        # how many total problems
 const FINEINTEGRATOR       = velocityVerlet
-const FINEDISCRETIZATION   = 2^3                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
+# const FINEDISCRETIZATION   = 2^3                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
 # DEFINE MODEL PARAMETERS
 # the frequency (spatial or temporal) constrains the potential values for the length of the rod
 # because we're leaving the frequency at 1, and assuming we're on Earth, the length of the rod must
@@ -45,10 +45,10 @@ powerVector       = collect(2:6)
 discVector        = 2 .^ powerVector
 energyErrorVector = zeros(length(powerVector))
 plot_dir  = string(pwd(), "/analysis/images/")
-plot_name = "energy_cd$(maximum(powerVector))_fd$(log2(FINEDISCRETIZATION))_$(powerVector[begin])_$(powerVector[end]).png"
+plot_name = "energy_cd$(maximum(powerVector))_$(powerVector[begin])_$(powerVector[end]).png"
 plot_abs_path = plot_dir * plot_name
-for (i, COARSEDISCRETIZATION) in enumerate(discVector)
-    @info "Beginning coarse discretization $COARSEDISCRETIZATION"
+for (i, FINEDISCRETIZATION) in enumerate(discVector)
+    @info "Beginning fine discretization $FINEDISCRETIZATION"
 
     solution = solve(
         NODEVECTOR,
@@ -68,31 +68,29 @@ for (i, COARSEDISCRETIZATION) in enumerate(discVector)
         threshold = sqrt(eps(Float32))
     )
 
-    # @info "" r_f=solution.positionSequence[end] v_f=solution.velocitySequence[end]
-
     # measure energy drift with respect to the final value
     kinetic_energy       = 0.5 * sum(abs2, solution.velocitySequence |> last)
     potential_energy     = GRAVITY * RODLENGTH * (1 - cos(solution.positionSequence |> last |> only))
     energy               = kinetic_energy + potential_energy
     energyErrorVector[i] = energy / TRUE_ENERGY - 1
-    # @info "" kinetic_energy potential_energy energy energyErrorVector[i]
 
     alert("Finished $i/$(length(powerVector))")
 
+    plot(
+        discVector,
+        energyErrorVector ./ energyErrorVector[1],
+        title  = "coarse: $COARSEDISCRETIZATION, t_f/2pi = $DOMAINUPPERBOUNDFACTOR",
+        xlabel = "fine discretization",
+        ylabel = "scaled %energy error at t_f",
+        xticks = discVector,
+        ylims  = (0, Inf),
+        xscale = :log2,
+        legend = false,
+        dpi    = 200,
+        size   = (3 * 200, 2 * 200)
+    )
 
-plot(
-    discVector,
-    energyErrorVector ./ energyErrorVector[1],
-    title  = "fine: $FINEDISCRETIZATION, t_f/2pi = $DOMAINUPPERBOUNDFACTOR",
-    xlabel = "coarse discretization",
-    ylabel = "scaled %energy error at t_f",
-    xticks = discVector,
-    ylims  = (0, Inf),
-    xscale  = :log2,
-    legend = false
-)
-
-savefig(plot_abs_path)
-println("Plot saved at ", plot_abs_path)
+    savefig(plot_abs_path)
+    println("Plot saved at ", plot_abs_path)
+    run(`codium $plot_abs_path`)
 end
-run(`codium $plot_abs_path`)
