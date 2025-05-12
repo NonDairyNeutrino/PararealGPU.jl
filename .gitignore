@@ -26,3 +26,5 @@ Manifest.toml
 .vscode/*
 */images/*
 *\~
+solution_checkpoint.txt
+log.log
