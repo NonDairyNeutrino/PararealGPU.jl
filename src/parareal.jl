@@ -179,7 +179,7 @@ function parareal(
         finePropagator   :: Propagator;
         threshold        :: T = convert(T, 1.0e-10),
         localonly        :: Bool = false
-    ) :: Solution{T} where T <: AbstractFloat
+    ) :: Tuple{Solution{T}, Int} where T <: AbstractFloat
 # ==================================================================================================
     # INITIALIZATION
     @info "Beginning iteration 0"
@@ -316,7 +316,7 @@ function parareal(
     else
         printstyled("\nFailed to converge in $maxIterations iterations.\n", color=:yellow)
     end
-    return rootSolution
+    return rootSolution, iteration
 end
 
 """
@@ -351,7 +351,7 @@ function solve(
         addlocal             :: Bool = false,
         localonly            :: Bool = false,
         threshold            :: T    = convert(T, 10)
-    ) :: Solution{T} where T <: AbstractFloat
+    ) :: Tuple{Solution{T}, Int} where T <: AbstractFloat
     sizeof(T) > 4 && @warn "Floats are larger than 32 bits. Consider downsizing to increase GPU performance." T
 
     !localonly && prepCluster(nodeVector, addlocal = addlocal)
@@ -370,9 +370,9 @@ function solve(
     ivp    = SecondOrderIVP("0", domain, acceleration, initialPosition, initialVelocity)
 
     @info "Beginning parareal evaluation"
-    @time "Parareal evaluation took " sol = parareal(ivp, coarse, fine; threshold = threshold, localonly = localonly)
+    @time "Parareal evaluation took " sol, iterations = parareal(ivp, coarse, fine; threshold = threshold, localonly = localonly)
     println("Closing cluster.")
     # TODO: write solutions to a file just in case something goes wrong after this
     !localonly && rmprocs(workers())
-    return sol
+    return sol, iterations
 end
