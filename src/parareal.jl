@@ -299,16 +299,14 @@ function parareal(
         # write current iteration's solution to checkpoint file
         # each iteration overwrites the previous checkpoint
         @info "Creating solution checkpoint file"
-        solchkIO = open("solution_checkpoint.txt", "w")
-        println(solchkIO, "# Iteration $iteration at $(now())")
-        println(solchkIO, "# Domain")
-        writedlm(solchkIO, newSolution.domain, ",")
-        println(solchkIO, "\n# Position Sequence")
-        writedlm(solchkIO, newSolution.positionSequence, ",")
-        println(solchkIO, "\n# Velocity Sequence")
-        writedlm(solchkIO, newSolution.velocitySequence, ",")
-        println()
-        close(solchkIO)
+        writedlm(
+            "solution_checkpoint.txt", 
+            vcat(
+                permutedims(newSolution.domain), 
+                stack(newSolution.positionSequence), 
+                stack(newSolution.velocitySequence)
+            )
+        )
     end
 # ==================================================================================================
     if iteration != maxIterations
