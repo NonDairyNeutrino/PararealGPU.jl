@@ -9,20 +9,20 @@ using .PararealGPU
 const NODEVECTOR           = String["Electromagnetism"]
 # DEFINE COMPUTATIONAL PARAMETERS
 const COARSEINTEGRATOR     = symplecticEuler
-const COARSEDISCRETIZATION = 2^18 # 2^10 = 1024, 2^15 = 32768, 2^20 = 1048576 # how many total problems
+const COARSEDISCRETIZATION = 2^10 # 2^10 = 1024, 2^15 = 32768, 2^20 = 1048576 # how many total problems
 const FINEINTEGRATOR       = velocityVerlet
-const FINEDISCRETIZATION   = 2^3  # 2^7 = 128 steps -> each step is ~1% of the domain
+const FINEDISCRETIZATION   = 2^7  # 2^7 = 128 steps -> each step is ~1% of the domain
 # DEFINE MODEL PARAMETERS
 const WAVENUMBER           = 1.0f0 # * pi
 # ACCELERATION(r, v)         = -WAVENUMBER^2 * r         # simple harmonic oscillator
-const DOMAINLOWERBOUND, DOMAINUPPERBOUND = 0.0f0, 2.0f0^5 * pi
+const DOMAINLOWERBOUND, DOMAINUPPERBOUND = 0.0f0, 2.0f0^1 * pi
 const INITIALPOSITION      = Float32[0.]
 const INITIALVELOCITY      = Float32[1.]
 
 const TRUEDOMAIN                 = range(DOMAINLOWERBOUND, DOMAINUPPERBOUND, COARSEDISCRETIZATION + 1)
 const TRUEPOSITION, TRUEVELOCITY = sin.(WAVENUMBER .* TRUEDOMAIN), cos.(WAVENUMBER .* TRUEDOMAIN)
 
-solution = solve(
+solution, _ = solve(
     NODEVECTOR,
     COARSEINTEGRATOR,
     COARSEDISCRETIZATION,
