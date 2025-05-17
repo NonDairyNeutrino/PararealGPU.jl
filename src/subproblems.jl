@@ -6,26 +6,37 @@
 Create subproblems from the given initial value problem and discretization.
 """
 function initializeSubproblems(
-        ivp :: SecondOrderIVP{T}, 
-        initialPropagator :: Propagator
+        ivp               :: SecondOrderIVP{T}, 
+        initialPropagator :: Propagator;
+        initialSolution   :: String = ""
     ) :: Tuple{Solution, Vector{SecondOrderIVP{T}}} where T <: AbstractFloat
-    # create a bunch of sub-intervals on which to parallelize
-    subDomainVector = partition(ivp.domain, initialPropagator.discretization)
-    # INITIAL PROPAGATION
-    # effectively creating an initial value for each sub-interval
-    # same as the end of the loop but with all correctors equal to zero
-    initialSolution = propagate(ivp, initialPropagator)
+
+    if isempty(initialSolution)
+        # create a bunch of sub-intervals on which to parallelize
+        subDomainVector = partition(ivp.domain, initialPropagator.discretization)
+        # INITIAL PROPAGATION
+        # effectively creating an initial value for each sub-interval
+        # same as the end of the loop but with all correctors equal to zero
+        initial_solution = propagate(ivp, initialPropagator)
+    else
+        # use assert here instead of elseif so an error is thrown
+        @assert isfile(initialSolution) "Given checkpoint file does not exist."
+        initial_solution = read_checkpoint(initialSolution, T)
+        subDomainVector  = let dom = initial_solution.domain
+            [Interval(dom[i], dom[i+1]) for i in 1:(length(dom) - 1)]
+        end
+    end
 
     # create a bunch of smaller initial value problems that can be solved in parallel
     subProblemVector = similar(subDomainVector, SecondOrderIVP{T})
     Threads.@threads for i in eachindex(subDomainVector)
         id                  = ivp.id * "." * string(i)
         subDomain           = subDomainVector[i]
-        initialPosition     = initialSolution.positionSequence[i]
-        initialVelocity     = initialSolution.velocitySequence[i]
+        initialPosition     = initial_solution.positionSequence[i]
+        initialVelocity     = initial_solution.velocitySequence[i]
         subProblemVector[i] = SecondOrderIVP(id, subDomain, ivp.acceleration, initialPosition, initialVelocity)
     end
-    return initialSolution, subProblemVector
+    return initial_solution, subProblemVector
 end
 
 """

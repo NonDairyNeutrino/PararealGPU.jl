@@ -34,7 +34,8 @@ solution, _ = solve(
     INITIALPOSITION,
     INITIALVELOCITY;
     addlocal  = true,
-    threshold = 1.0f-6 # if < eps(Float32), then it will converge but the values "wont't change"
+    threshold = 1.0f-6, # if < eps(Float32), then it will converge but the values "wont't change",
+    initialSolution = pwd() * "/solution_checkpoint.txt"
 )
 
 using Plots: plot, plot!, savefig

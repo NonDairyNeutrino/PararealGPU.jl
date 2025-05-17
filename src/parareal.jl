@@ -178,12 +178,13 @@ function parareal(
         coarsePropagator :: Propagator, 
         finePropagator   :: Propagator;
         threshold        :: T = convert(T, 1.0e-10),
-        localonly        :: Bool = false
+        localonly        :: Bool = false,
+        initialSolution  :: String = ""
     ) :: Tuple{Solution{T}, Int} where T <: AbstractFloat
 # ==================================================================================================
     # INITIALIZATION
     @info "Beginning iteration 0"
-    rootSolution, directorProblemVector = initializeSubproblems(ivp, coarsePropagator)
+    rootSolution, directorProblemVector = initializeSubproblems(ivp, coarsePropagator; initialSolution = initialSolution)
     predSolution = rootSolution # on iteration 0 predicted solution = root solution
     oldSolution  = rootSolution
 
@@ -296,17 +297,7 @@ function parareal(
             )
         end
 
-        # write current iteration's solution to checkpoint file
-        # each iteration overwrites the previous checkpoint
-        @info "Creating solution checkpoint file"
-        writedlm(
-            "solution_checkpoint.txt", 
-            vcat(
-                permutedims(newSolution.domain), 
-                stack(newSolution.positionSequence), 
-                stack(newSolution.velocitySequence)
-            )
-        )
+        
     end
 # ==================================================================================================
     if iteration != maxIterations
@@ -315,62 +306,4 @@ function parareal(
         printstyled("\nFailed to converge in $maxIterations iterations.\n", color=:yellow)
     end
     return rootSolution, iteration
-end
-
-"""
-    solve(
-        nodeVector           :: Vector{String},
-        coarseIntegrator     :: Function,
-        coarseDiscretization :: Int,
-        fineIntegrator       :: Function,
-        fineDiscretization   :: Int,
-        acc                  :: Function,
-        lowerBound           :: T,
-        upperBound           :: T,
-        initialPosition      :: Vector{T},
-        initialVelocity      :: Vector{T};
-        addlocal             :: Bool = false,
-        threshold            :: T    = convert(T, 10)
-    ) :: Solution{T} where T <: AbstractFloat
-
-Solves the given problem using the given coarse and fine propagators.
-"""
-function solve(
-        nodeVector           :: Vector{String},
-        coarseIntegrator     :: Function,
-        coarseDiscretization :: Int,
-        fineIntegrator       :: Function,
-        fineDiscretization   :: Int,
-        acc                  :: Function,
-        lowerBound           :: T,
-        upperBound           :: T,
-        initialPosition      :: Vector{T},
-        initialVelocity      :: Vector{T};
-        addlocal             :: Bool = false,
-        localonly            :: Bool = false,
-        threshold            :: T    = convert(T, 10)
-    ) :: Tuple{Solution{T}, Int} where T <: AbstractFloat
-    sizeof(T) > 4 && @warn "Floats are larger than 32 bits. Consider downsizing to increase GPU performance." T
-
-    !localonly && prepCluster(nodeVector, addlocal = addlocal)
-    @info "Creating initial value problems"
-    coarse = Propagator(coarseIntegrator, coarseDiscretization)
-    fine   = Propagator(fineIntegrator,  fineDiscretization)
-
-    # redefine and distribute to allow the user to stipulate a generic function
-    # but have the underlying implementation specialize on floats and vectors
-    function acceleration(
-            position :: Vector{T}, velocity :: Vector{T}
-        ) :: Vector{T} where T <: AbstractFloat
-        return acc(position, velocity)
-    end
-    domain = Interval{T}(lowerBound, upperBound)
-    ivp    = SecondOrderIVP("0", domain, acceleration, initialPosition, initialVelocity)
-
-    @info "Beginning parareal evaluation"
-    @time "Parareal evaluation took " sol, iterations = parareal(ivp, coarse, fine; threshold = threshold, localonly = localonly)
-    println("Closing cluster.")
-    # TODO: write solutions to a file just in case something goes wrong after this
-    !localonly && rmprocs(workers())
-    return sol, iterations
 end

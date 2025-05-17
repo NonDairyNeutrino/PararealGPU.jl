@@ -25,6 +25,8 @@ include("correction.jl")
 include("convergence.jl")
 include("kernel.jl")
 include("distributed.jl")
+include("checkpoint.jl")
+include("problem_prep.jl")
 include("parareal.jl")
 
 end
