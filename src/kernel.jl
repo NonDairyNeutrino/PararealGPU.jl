@@ -61,23 +61,22 @@ end
 TBW
 """
 function propagate_gpu!(
+        # integrator   :: Function, 
+        acc          :: Function,
         problemCount :: Int,
         dimension    :: Int,
         t_max        :: Int,
         step         :: Float32,
         pos_seqs_dev,
         vel_seqs_dev
-    ) :: Nothing 
+    ) :: Nothing
     problem      = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride       = gridDim().x * blockDim().x
     # FIXME: FOR SOME REAOSN GOD ONLY KNOWS, THE AMPLITUDE OF THE POSITION WAVE IS CONSTANT IN TIME
     # BUT DEPENDS ON THE WAVE WAVE NUMBER I.E. IT DOES NOT DECAY IN TIME BUT DECREASES WITH A HIGHER
     # FREQUENCY
-    k            = 1.0f0 # * pi
-    k2           = k^2
     halfstep     = 0.5f0 * step
     halfstep2    = halfstep * step
-    acc(r)       = -k2 * r
 
     while problem <= problemCount
         dim = 1
@@ -87,9 +86,9 @@ function propagate_gpu!(
 
             t = 1
             while t <= t_max
-                acc_old = acc(pos)
+                acc_old = acc(pos, vel)
                 pos    += vel*step + halfstep2*acc_old
-                acc_new = acc(pos)
+                acc_new = acc(pos, vel)
                 vel    += halfstep * (acc_old + acc_new)
                 t += 1
             end
@@ -149,6 +148,7 @@ function pararealSolution!(
 
     # optimize the kernel parameters e.g. threads, blocks
     kernel_call = @cuda launch=false propagate_gpu!(
+        acceleration,
         problemCount,
         dimension,
         t_max,
@@ -169,6 +169,7 @@ function pararealSolution!(
     # execute on the gpu
     try
         CUDA.@sync kernel_call(
+            acceleration,
             problemCount,
             dimension,
             t_max,

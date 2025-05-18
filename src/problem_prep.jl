@@ -19,9 +19,14 @@ function build_ivp(
     @info "Creating initial value problem"
 
     function acceleration(
-            position :: Vector{T}, velocity :: Vector{T}
-        ) :: Vector{T} where T <: AbstractFloat
+            position :: T, velocity :: T
+        ) :: T where T <: AbstractFloat
         return acc(position, velocity)
+    end
+    function acceleration(
+            position :: V, velocity :: V
+        ) :: V where {T <: AbstractFloat, V <: Vector{T}} 
+        return acc.(position, velocity)
     end
     domain = Interval{T}(lowerBound, upperBound)
     ivp    = SecondOrderIVP("0", domain, acceleration, initialPosition, initialVelocity)
