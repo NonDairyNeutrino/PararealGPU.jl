@@ -11,7 +11,7 @@ function euler(point, slope, step)
 end
 
 """
-    sympecticEuler(timeStep :: Float64, position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function) :: Tuple{Vector{Float64}, Vector{Float64}}
+    symplecticEuler(position :: Vector{T}, velocity :: Vector{T}, acceleration :: Function, timeStep :: R) :: Tuple{Vector{T}, Vector{T}} where {T <: Real, R <: Real}
 
 Gives the single propagation using the symplectic Euler integrator.
 """
@@ -22,19 +22,27 @@ function symplecticEuler(position :: Vector{T}, velocity :: Vector{T}, accelerat
 end
 
 """
-    velocityVerlet(position :: Vector{Float64}, velocity :: Vector{Float64}, acceleration :: Function, step :: Float64) :: Vector{Float64}
+    velocityVerlet(
+        position :: V,
+        velocity :: V,
+        acceleration :: Function,
+        step :: T
+    ) :: Tuple{V, V} where {T <: AbstractFloat, V <: Union{T, Vector{T}}}
 
 Get the next position and velocity using the Velocity Verlet algorithm.
 """
 function velocityVerlet(
-        position :: V, 
-        velocity :: V, 
-        acceleration :: A, 
-        step :: F
-    ) :: Tuple{V, V} where {V <: AbstractVector, A <: Function, F <: AbstractFloat}
+        position :: V,
+        velocity :: V,
+        acceleration :: Function,
+        step :: T
+    ) :: Tuple{V, V} where {T <: AbstractFloat, V <: Union{T, Vector{T}}}
+    halfstep        = convert(T, 0.5) * step
+    halfstep2       = halfstep * step
+
     oldAcceleration = acceleration(position, velocity)
-    newPosition     = position + velocity * step + 0.5 * oldAcceleration * step^2
+    newPosition     = position + velocity * step + halfstep2 * oldAcceleration
     newAcceleration = acceleration(newPosition, velocity)
-    newVelocity     = velocity + 0.5 * (oldAcceleration + newAcceleration) * step
+    newVelocity     = velocity + halfstep * (oldAcceleration + newAcceleration)
     return newPosition, newVelocity
 end

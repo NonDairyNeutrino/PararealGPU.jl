@@ -61,22 +61,15 @@ end
 TBW
 """
 function propagate_gpu!(
-        # integrator   :: Function, 
-        acc          :: Function,
+        solver       :: Function,
         problemCount :: Int,
         dimension    :: Int,
         t_max        :: Int,
-        step         :: Float32,
         pos_seqs_dev,
         vel_seqs_dev
     ) :: Nothing
     problem      = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride       = gridDim().x * blockDim().x
-    # FIXME: FOR SOME REAOSN GOD ONLY KNOWS, THE AMPLITUDE OF THE POSITION WAVE IS CONSTANT IN TIME
-    # BUT DEPENDS ON THE WAVE WAVE NUMBER I.E. IT DOES NOT DECAY IN TIME BUT DECREASES WITH A HIGHER
-    # FREQUENCY
-    halfstep     = 0.5f0 * step
-    halfstep2    = halfstep * step
 
     while problem <= problemCount
         dim = 1
@@ -86,10 +79,11 @@ function propagate_gpu!(
 
             t = 1
             while t <= t_max
-                acc_old = acc(pos, vel)
-                pos    += vel*step + halfstep2*acc_old
-                acc_new = acc(pos, vel)
-                vel    += halfstep * (acc_old + acc_new)
+                # acc_old = acc(pos, vel)
+                # pos    += vel*step + halfstep2*acc_old
+                # acc_new = acc(pos, vel)
+                # vel    += halfstep * (acc_old + acc_new)
+                pos, vel = solver(pos, vel)
                 t += 1
             end
 
@@ -134,6 +128,7 @@ function pararealSolution!(
     )
     # all problems use same step size
     step = (discretizedDomain[end, 1] - discretizedDomain[begin,1]) / size(discretizedDomain, 1)
+    step = convert(T, step)
     # @info "dt/T = $(1/size(discretizedDomain, 1))" maxlog=1
 
     # put stuff on the gpu
@@ -143,16 +138,14 @@ function pararealSolution!(
     vel_seqs_dev = vel_seqs |> CuArray
     # println("Arrays copied to device.")
 
-    # solver(scheme, acc, step) = ((x, v) -> scheme(x, v, acc, step))
-    # foo = solver(int_scheme, acceleration, step)
-
+    solver = ((x, v) -> int_scheme(x, v, acceleration, step))
+    solver([0.0f0], [1.0f0])
     # optimize the kernel parameters e.g. threads, blocks
     kernel_call = @cuda launch=false propagate_gpu!(
-        acceleration,
+        solver,
         problemCount,
         dimension,
         t_max,
-        step,
         pos_seqs_dev, 
         vel_seqs_dev
     )
@@ -169,11 +162,10 @@ function pararealSolution!(
     # execute on the gpu
     try
         CUDA.@sync kernel_call(
-            acceleration,
+            solver,
             problemCount,
             dimension,
             t_max,
-            step,
             pos_seqs_dev, 
             vel_seqs_dev; # this needs to be a semicolon ";" and not a comma ","
             threads,      # or else it will run single-threaded for some godforsaken reason

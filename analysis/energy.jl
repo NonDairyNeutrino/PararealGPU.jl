@@ -41,7 +41,7 @@ const INITIALVELOCITY      = Float32[1.]
 const TRUE_ENERGY = 0.5 * sum(abs2, INITIALVELOCITY) # = ||v||^2
 @info "" TRUE_ENERGY
 
-powerVector       = collect(2:6)
+powerVector       = collect(2:15)
 discVector        = 2 .^ powerVector
 energyErrorVector = zeros(length(powerVector))
 plot_dir  = string(pwd(), "/analysis/images/")
@@ -85,6 +85,7 @@ for (i, FINEDISCRETIZATION) in enumerate(discVector)
         xticks = discVector,
         ylims  = (0, Inf),
         xscale = :log2,
+        yscale = :log2,
         legend = false,
         dpi    = 200,
         size   = (3 * 200, 2 * 200)
