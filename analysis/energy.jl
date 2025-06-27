@@ -17,9 +17,9 @@ using .PararealGPU
 const NODEVECTOR           = String["Electromagnetism"]
 # DEFINE COMPUTATIONAL PARAMETERS
 const COARSEINTEGRATOR     = symplecticEuler
-const COARSEDISCRETIZATION = 2^10                        # how many total problems
+# const COARSEDISCRETIZATION = 2^10                        # how many total problems
 const FINEINTEGRATOR       = velocityVerlet
-# const FINEDISCRETIZATION   = 2^3                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
+# const FINEDISCRETIZATION   = 2^7                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
 # DEFINE MODEL PARAMETERS
 # the frequency (spatial or temporal) constrains the potential values for the length of the rod
 # because we're leaving the frequency at 1, and assuming we're on Earth, the length of the rod must
@@ -41,56 +41,65 @@ const INITIALVELOCITY      = Float32[1.]
 const TRUE_ENERGY = 0.5 * sum(abs2, INITIALVELOCITY) # = ||v||^2
 @info "" TRUE_ENERGY
 
-powerVector       = collect(2:6)
-discVector        = 2 .^ powerVector
-energyErrorVector = zeros(length(powerVector))
+finePowerVector = [2, 9, 10, 11, 14]
+coarsePowerVector   = collect(2:14)
+coarseDiscVector  = 2 .^ coarsePowerVector
+fineDiscVector    = 2 .^ finePowerVector
+energyErrorMatrix = zeros(length(coarseDiscVector), length(fineDiscVector))
+
 plot_dir  = string(pwd(), "/analysis/images/")
-plot_name = "energy_cd$(maximum(powerVector))_$(powerVector[begin])_$(powerVector[end]).png"
-plot_abs_path = plot_dir * plot_name
-for (i, FINEDISCRETIZATION) in enumerate(discVector)
-    @info "Beginning fine discretization $FINEDISCRETIZATION"
+plot_ext  = ".png"
+for (f, FINEDISCRETIZATION) in enumerate(fineDiscVector)
+    for (c, COARSEDISCRETIZATION) in enumerate(coarseDiscVector)
+        plot_name = replace(string("energy_", "fine_", finePowerVector, "_coarse_", coarsePowerVector[begin], "_", coarsePowerVector[end]), ", " => "_", r"\[|\]" => "")
+        plot_abs_path = plot_dir * plot_name * plot_ext
+        # @info "Beginning coarse discretization $COARSEDISCRETIZATION"
+        # @info "Beginning fine discretization $FINEDISCRETIZATION"
 
-    solution = solve(
-        NODEVECTOR,
-        COARSEINTEGRATOR,
-        COARSEDISCRETIZATION,
-        FINEINTEGRATOR,
-        FINEDISCRETIZATION,
-        ((r, v) -> -WAVENUMBER^2 * r),
-        DOMAINLOWERBOUND,
-        DOMAINUPPERBOUND,
-        INITIALPOSITION,
-        INITIALVELOCITY;
-        addlocal  = true,
-        # eps(Float32) == 1.1920929f-7
-        # sqrt(eps(Float32)) == 0.00034526698f0
-        # this mirrors isapprox()
-        threshold = sqrt(eps(Float32))
-    )
+        solution, _ = solve(
+            NODEVECTOR,
+            COARSEINTEGRATOR,
+            COARSEDISCRETIZATION,
+            FINEINTEGRATOR,
+            FINEDISCRETIZATION,
+            ((r, v) -> -WAVENUMBER^2 * r),
+            DOMAINLOWERBOUND,
+            DOMAINUPPERBOUND,
+            INITIALPOSITION,
+            INITIALVELOCITY;
+            addlocal  = true,
+            # eps(Float32) == 1.1920929f-7
+            # sqrt(eps(Float32)) == 0.00034526698f0
+            # this mirrors isapprox()
+            threshold = sqrt(eps(Float32))
+        )
 
-    # measure energy drift with respect to the final value
-    kinetic_energy       = 0.5 * sum(abs2, solution.velocitySequence |> last)
-    potential_energy     = GRAVITY * RODLENGTH * (1 - cos(solution.positionSequence |> last |> only))
-    energy               = kinetic_energy + potential_energy
-    energyErrorVector[i] = energy / TRUE_ENERGY - 1
+        # measure energy drift with respect to the final value
+        kinetic_energy       = 0.5 * sum(abs2, solution.velocitySequence |> last)
+        potential_energy     = GRAVITY * RODLENGTH * (1 - cos(solution.positionSequence |> last |> only))
+        energy               = kinetic_energy + potential_energy
+        energyErrorMatrix[c, f] = energy / TRUE_ENERGY - 1
 
-    alert("Finished $i/$(length(powerVector))")
+        alert(string("Finished $f.$c/", length(coarsePowerVector), ".", length(finePowerVector)))
 
-    plot(
-        discVector,
-        energyErrorVector ./ energyErrorVector[1],
-        title  = "coarse: $COARSEDISCRETIZATION, t_f/2pi = $DOMAINUPPERBOUNDFACTOR",
-        xlabel = "fine discretization",
-        ylabel = "scaled %energy error at t_f",
-        xticks = discVector,
-        ylims  = (0, Inf),
-        xscale = :log2,
-        legend = false,
-        dpi    = 200,
-        size   = (3 * 200, 2 * 200)
-    )
+        @views energyErrorMatrix[:, f] ./= energyErrorMatrix[1, f]
+        plot(
+            coarseDiscVector,
+            energyErrorMatrix .|> abs .|> log10,
+            title  = "t_f/2pi = $DOMAINUPPERBOUNDFACTOR",
+            # xlabel = "coarse discretization",
+            xlabel = "coarse discretization",
+            ylabel = "log10(|%err/err[1]|) at t_f",
+            xticks = coarseDiscVector,
+            xscale = :log2,
+            # legend = false,
+            labels = string.("2^", finePowerVector) |> permutedims,
+            dpi    = 200,
+            size   = (3 * 200, 2 * 200)
+        )
 
-    savefig(plot_abs_path)
-    println("Plot saved at ", plot_abs_path)
-    run(`codium $plot_abs_path`)
+        savefig(plot_abs_path)
+        println("Plot saved at ", plot_abs_path)
+        run(`codium $plot_abs_path`)
+    end
 end

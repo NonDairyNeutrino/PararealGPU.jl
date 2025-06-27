@@ -65,7 +65,8 @@ for (i, FINEDISCRETIZATION) in enumerate(discVector)
         # eps(Float32) == 1.1920929f-7
         # sqrt(eps(Float32)) == 0.00034526698f0
         # this mirrors isapprox()
-        threshold = sqrt(eps(Float32))
+        threshold = sqrt(eps(Float32)),
+        
     )
 
     # measure energy drift with respect to the final value
