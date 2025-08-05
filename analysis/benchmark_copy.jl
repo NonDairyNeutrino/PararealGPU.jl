@@ -68,41 +68,29 @@ function bench_gpu(coarse :: Int, fine :: Int) :: NamedTuple
     return bench
 end
 
-function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
-    # definition of solve()
-    PararealGPU.prepCluster(NODEVECTOR, addlocal = true)
-
-    coarse = PararealGPU.Propagator(COARSEINTEGRATOR, coarse_disc)
-    fine   = PararealGPU.Propagator(FINEINTEGRATOR,  fine_disc)
-
-    ivp = PararealGPU.build_ivp(
+PararealGPU.prepCluster(NODEVECTOR, addlocal = true)
+ivp = PararealGPU.build_ivp(
         ((r, v) -> -WAVENUMBER^2 * r), 
         DOMAINLOWERBOUND, DOMAINUPPERBOUND, 
         INITIALPOSITION, INITIALVELOCITY
     )
 
-    @info "Beginning parareal evaluation"
-    sol = nothing
-    iterations = 0
-    bench = nothing
-    try
-        bench = @btimed PararealGPU.parareal(
-            $ivp, 
-            $coarse, 
-            $fine; 
-            threshold = sqrt(eps(Float32)), 
-            localonly = false
-        )
-    finally
-        @info "Closing cluster."
-        rmprocs(workers())
-    end
+function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
+    coarse = PararealGPU.Propagator(COARSEINTEGRATOR, coarse_disc)
+    fine   = PararealGPU.Propagator(FINEINTEGRATOR,  fine_disc)
+    bench  = @btimed PararealGPU.parareal(
+        $ivp, 
+        $coarse, 
+        $fine; 
+        threshold = sqrt(eps(Float32)), 
+        localonly = false
+    )
     return bench
 end
 
 function main() :: Nothing
     coarse_vector      = collect(3:14)
-    fine_vector        = collect(3:14)
+    fine_vector        = collect(12:14)
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
     # bench and write all single threaded benchmarks before doing parallelized methods

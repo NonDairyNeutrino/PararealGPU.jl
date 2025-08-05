@@ -100,8 +100,8 @@ function bench_distributed()
 end
 
 function main() :: Nothing
-    coarse_vector      = collect(3:14)
-    fine_vector        = collect(9:14)
+    coarse_vector      = [14] # collect(3:14)
+    fine_vector        = [14] # collect(9:14)
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
     # bench and write all single threaded benchmarks before doing parallelized methods
@@ -133,7 +133,7 @@ function main() :: Nothing
             display(e)
             gpu_time_matrix[index] = -1.0
         finally
-            writedlm("gpu_time_matrix.tsv", gpu_time_matrix)
+            writedlm("gpu_time_matrix_staging.tsv", gpu_time_matrix)
         end
     end
 
