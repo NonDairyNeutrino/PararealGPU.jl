@@ -101,7 +101,7 @@ end
 
 function main() :: Nothing
     coarse_vector      = collect(3:14)
-    fine_vector        = collect(3:14)
+    fine_vector        = collect(9:14)
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
     # bench and write all single threaded benchmarks before doing parallelized methods
@@ -119,18 +119,22 @@ function main() :: Nothing
         # multi_cpu()
 
     # bench gpu for all discretizations
-    try
-        gpu_time_matrix = similar(coarse_fine_matrix, Float64)
-        for index in eachindex(coarse_fine_matrix)
-            coarse, fine = coarse_fine_matrix[index]
-            println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
+    gpu_time_matrix = similar(coarse_fine_matrix, Float64)
+    for index in eachindex(coarse_fine_matrix)
+        coarse, fine = coarse_fine_matrix[index]
+        println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
+        try
             gpu_bench = bench_gpu(2^coarse, 2^fine)
             gpu_time_matrix[index] = gpu_bench.time
+        catch e
+            println("Caught error for coarse = $coarse fine =$fine.")
+            println("Writing -1.0 to time file.")
+            println("Moving on to next discretization pair.")
+            display(e)
+            gpu_time_matrix[index] = -1.0
+        finally
             writedlm("gpu_time_matrix.tsv", gpu_time_matrix)
         end
-    catch e
-        println("The following error occurred. Progress checkpointed in gpu_time_matrix.tsv")
-        display(e)
     end
 
         # printstyled("BENCHING SINGLE GPU\n", color = :green)
