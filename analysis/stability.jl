@@ -8,9 +8,9 @@ using .PararealGPU
 const NODEVECTOR           = String["Electromagnetism"]
 # DEFINE COMPUTATIONAL PARAMETERS
 const COARSEINTEGRATOR     = symplecticEuler
-const COARSEDISCRETIZATION = 2^6                        # how many total problems
+const COARSEDISCRETIZATION = 2^13                        # how many total problems
 const FINEINTEGRATOR       = velocityVerlet
-const FINEDISCRETIZATION   = 2^3                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
+const FINEDISCRETIZATION   = 2^13                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
 # DEFINE MODEL PARAMETERS
 # the frequency (spatial or temporal) constrains the potential values for the length of the rod
 # because we're leaving the frequency at 1, and assuming we're on Earth, the length of the rod must
@@ -72,7 +72,7 @@ for (i, DOMAINUPPERBOUND) in enumerate(upperBoundVector)
     plot(
         upperBoundVector |> reverse,
         energyErrorVector #= ./ maximum(energyErrorVector) =#,
-        title  = "coarse: $COARSEDISCRETIZATION, fine: $FINEDISCRETIZATION", # log2(max(error)) ~ $(round(Int, log2(maximum(energyErrorVector))))",
+        title  = "coarse: 2^$(log2(COARSEDISCRETIZATION)), fine: 2^$(log2(FINEDISCRETIZATION))", # log2(max(error)) ~ $(round(Int, log2(maximum(energyErrorVector))))",
         # label  = ["position" "velocity"],
         legend = false,
         xlabel = "t_f/2pi",

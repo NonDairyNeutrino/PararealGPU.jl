@@ -10,6 +10,7 @@ global_logger(logger)
 
 using Alert
 using Plots: plot, plot!, savefig
+using DelimitedFiles
 include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
 
@@ -41,49 +42,31 @@ const INITIALVELOCITY      = Float32[1.]
 const TRUE_ENERGY = 0.5 * sum(abs2, INITIALVELOCITY) # = ||v||^2
 @info "" TRUE_ENERGY
 
-finePowerVector = [2, 9, 10, 11, 14]
-coarsePowerVector   = collect(2:14)
-coarseDiscVector  = 2 .^ coarsePowerVector
-fineDiscVector    = 2 .^ finePowerVector
+const finePowerVector   = [6, 8, 10, 12, 14]
+const coarsePowerVector = collect(2:14)
+const coarseDiscVector  = 2 .^ coarsePowerVector
+const fineDiscVector    = 2 .^ finePowerVector
 energyErrorMatrix = zeros(length(coarseDiscVector), length(fineDiscVector))
 
-plot_dir  = string(pwd(), "/analysis/images/")
-plot_ext  = ".png"
-for (f, FINEDISCRETIZATION) in enumerate(fineDiscVector)
-    for (c, COARSEDISCRETIZATION) in enumerate(coarseDiscVector)
-        plot_name = replace(string("energy_", "fine_", finePowerVector, "_coarse_", coarsePowerVector[begin], "_", coarsePowerVector[end]), ", " => "_", r"\[|\]" => "")
-        plot_abs_path = plot_dir * plot_name * plot_ext
-        # @info "Beginning coarse discretization $COARSEDISCRETIZATION"
-        # @info "Beginning fine discretization $FINEDISCRETIZATION"
+const plot_dir  = string(pwd(), "/analysis/images/")
+const plot_ext  = ".png"
+const plot_name = replace(string("energy_", "fine_", finePowerVector, "_coarse_", coarsePowerVector[begin], "_", coarsePowerVector[end]), ", " => "_", r"\[|\]" => "")
+const plot_abs_path = plot_dir * plot_name * plot_ext
 
-        solution, _ = solve(
-            NODEVECTOR,
-            COARSEINTEGRATOR,
-            COARSEDISCRETIZATION,
-            FINEINTEGRATOR,
-            FINEDISCRETIZATION,
-            ((r, v) -> -WAVENUMBER^2 * r),
-            DOMAINLOWERBOUND,
-            DOMAINUPPERBOUND,
-            INITIALPOSITION,
-            INITIALVELOCITY;
-            addlocal  = true,
-            # eps(Float32) == 1.1920929f-7
-            # sqrt(eps(Float32)) == 0.00034526698f0
-            # this mirrors isapprox()
-            threshold = sqrt(eps(Float32))
-        )
+function calculate_error!(energyErrorMatrix :: Matrix, inds :: Dims{2}, solution :: Solution) :: Nothing
+    # measure energy drift with respect to the final value
+    final_position = solution.positionSequence |> last |> only
+    final_velocity = solution.velocitySequence |> last
 
-        # measure energy drift with respect to the final value
-        kinetic_energy       = 0.5 * sum(abs2, solution.velocitySequence |> last)
-        potential_energy     = GRAVITY * RODLENGTH * (1 - cos(solution.positionSequence |> last |> only))
-        energy               = kinetic_energy + potential_energy
-        energyErrorMatrix[c, f] = energy / TRUE_ENERGY - 1
+    kinetic_energy       = 0.5 * sum(abs2, final_velocity)
+    potential_energy     = GRAVITY * RODLENGTH * (1 - cos(final_position))
+    energy               = kinetic_energy + potential_energy
+    energyErrorMatrix[inds...] = energy / TRUE_ENERGY - 1
+    return nothing
+end
 
-        alert(string("Finished $f.$c/", length(coarsePowerVector), ".", length(finePowerVector)))
-
-        @views energyErrorMatrix[:, f] ./= energyErrorMatrix[1, f]
-        plot(
+function plot_error(coarseDiscVector, finePowerVector, energyErrorMatrix)
+    plot(
             coarseDiscVector,
             energyErrorMatrix .|> abs .|> log10,
             title  = "t_f/2pi = $DOMAINUPPERBOUNDFACTOR",
@@ -92,14 +75,50 @@ for (f, FINEDISCRETIZATION) in enumerate(fineDiscVector)
             ylabel = "log10(|%err/err[1]|) at t_f",
             xticks = coarseDiscVector,
             xscale = :log2,
-            # legend = false,
             labels = string.("2^", finePowerVector) |> permutedims,
             dpi    = 200,
             size   = (3 * 200, 2 * 200)
-        )
-
-        savefig(plot_abs_path)
-        println("Plot saved at ", plot_abs_path)
-        run(`codium $plot_abs_path`)
-    end
+    )
 end
+
+function main() :: Nothing
+    for (f, FINEDISCRETIZATION) in enumerate(fineDiscVector)
+        for (c, COARSEDISCRETIZATION) in enumerate(coarseDiscVector)
+            @info "Beginning coarse discretization $COARSEDISCRETIZATION"
+            @info "Beginning fine   discretization $FINEDISCRETIZATION"
+
+            solution, _ = solve(
+                NODEVECTOR,
+                COARSEINTEGRATOR,
+                COARSEDISCRETIZATION,
+                FINEINTEGRATOR,
+                FINEDISCRETIZATION,
+                ((r, v) -> -WAVENUMBER^2 * r),
+                DOMAINLOWERBOUND,
+                DOMAINUPPERBOUND,
+                INITIALPOSITION,
+                INITIALVELOCITY;
+                addlocal  = true,
+                # eps(Float32) == 1.1920929f-7
+                # sqrt(eps(Float32)) == 0.00034526698f0
+                # this mirrors isapprox()
+                threshold = sqrt(eps(Float32))
+            )
+            calculate_error!(energyErrorMatrix, (c,f), solution)
+            open("analysis/error_data.tsv", "w") do io
+                writedlm(io, energyErrorMatrix)
+            end
+            alert(string("Finished $f.$c/", length(coarsePowerVector), ".", length(finePowerVector)))
+
+            @views energyErrorMatrix[:, f] ./= energyErrorMatrix[1, f]
+            plot_error(coarseDiscVector, finePowerVector, energyErrorMatrix)
+            savefig(plot_abs_path)
+            println("Plot saved at ", plot_abs_path)
+            run(`codium $plot_abs_path`)
+        end
+    end
+    println("Error analysis finished.")
+    return nothing
+end
+
+main()

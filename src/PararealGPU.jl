@@ -7,6 +7,7 @@ export solve                                     # parareal.jl
 export euler, symplecticEuler, velocityVerlet    # integration.jl
 export getRelativeChange                         # convergence.jl
 export norm                                      # LinearAlgebra
+export Solution
 
 using CUDA
 using Distributed
