@@ -2,7 +2,8 @@ module PararealGPUBenchmarks
 export bench_single, bench_all_single, bench_gpu, bench_all_gpu, bench_distributed, bench_all_distributed
 
 using BenchmarkTools, DelimitedFiles, Distributed
-include("$(pwd())/src/PararealGPU.jl"); using .PararealGPU
+const proj_dir = Base.active_project() |> dirname
+include("$proj_dir/src/PararealGPU.jl"); using .PararealGPU
 
 const DATADIR = dirname(@__DIR__) * "/data/"
 
@@ -159,7 +160,7 @@ function main() :: Nothing
 end
 
 # if this file is explicitly run, then actually do the benchmarks
-if PROGRAM_FILE == @__FILE__
+if abspath(PROGRAM_FILE) == @__FILE__
     # DEFINE CLUSTER
     const NODEVECTOR           = String["Electromagnetism"]
     # DEFINE COMPUTATIONAL PARAMETERS
