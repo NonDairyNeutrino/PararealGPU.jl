@@ -86,42 +86,32 @@ function bench_gpu(coarse :: Int, fine :: Int) :: NamedTuple
     return bench
 end
 
-function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; time_file_name :: String = "") :: Tuple{Matrix{Float64}}
-    time_matrix = similar(coarse_fine_matrix, Float64)
+function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}) :: Nothing
 
+    bench_file_name = DATADIR * "bench_gpu.jld2"
+    bench_file      = jldopen(bench_file_name, "w")
     for index in eachindex(coarse_fine_matrix)
-        coarse, fine = coarse_fine_matrix[index]
-        println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
 
-        sol = (Solution(Float64[], [Float64[]], [Float64[]]), 0)
+        coarse, fine = coarse_fine_matrix[index]
+        println("Beginning gpu benchmark with coarse = $coarse, fine = $fine")
+
         try
-            bench = bench_gpu(2^coarse, 2^fine)
-            time_matrix[index] = bench.time
-            sol                = bench.value
+            # don't save bench to intermediate variable to prevent memory overflow
+            write(bench_file, "$coarse/$fine", bench_gpu(2^coarse, 2^fine))
 
         catch e
-            println("Caught error for coarse = $coarse fine =$fine.")
-            println("Writing -1.0 to time file.")
+            println("Caught error for coarse = $coarse, fine = $fine.")
             println("Moving on to next discretization pair.")
             display(e)
-            time_matrix[index] = -1.0
-            # if error write outer sol to file
 
         finally
+            println("Finished ", index, "/", length(coarse_fine_matrix))
 
-            if !isempty(time_file_name)
-                time_file = DATADIR * time_file_name
-                writedlm(time_file, time_matrix)
-                println("GPU runtimes saved to ", time_file)
-            end
-
-            sol_file = DATADIR * "sol_gpu_c$(coarse)_f$(fine).jld2"
-            save_object(sol_file, sol)
-            println("GPU solutions saved to ", sol_file)
         end
     end
 
-    return time_matrix
+    close(bench_file)
+    return nothing
 end
 
 function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
@@ -179,13 +169,13 @@ function bench_all_distributed(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; ti
 end
 
 function main() :: Nothing
-    coarse_vector      = 3:14
-    fine_vector        = 3:14
+    coarse_vector      = 3:14 |> collect
+    fine_vector        = 3:14 |> collect
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
     save_object(DATADIR * "disc_matrix.jld2", coarse_fine_matrix)
-    bench_all_single(coarse_vector)
-    # bench_all_gpu(coarse_fine_matrix;         time_file_name = "gpu_time_matrix.tsv")
+    # bench_all_single(coarse_vector)
+    bench_all_gpu(coarse_fine_matrix)
     # bench_all_distributed(coarse_fine_matrix; time_file_name = "dist_time_matrix.tsv")
 
     return nothing
