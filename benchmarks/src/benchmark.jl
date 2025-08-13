@@ -1,23 +1,10 @@
-using Plots: plot, plot!, savefig
+module PararealGPUBenchmarks
+export bench_single, bench_all_single, bench_gpu, bench_all_gpu, bench_distributed, bench_all_distributed
+
 using BenchmarkTools, DelimitedFiles, Distributed
 include("$(pwd())/src/PararealGPU.jl"); using .PararealGPU
 
 const DATADIR = dirname(@__DIR__) * "/data/"
-# DEFINE CLUSTER
-const NODEVECTOR           = String["Electromagnetism"]
-# DEFINE COMPUTATIONAL PARAMETERS
-const COARSEINTEGRATOR     = symplecticEuler
-# const COARSEDISCRETIZATION = 2^10                        # how many total problems
-const FINEINTEGRATOR       = velocityVerlet
-# const FINEDISCRETIZATION   = 2^10                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
-# DEFINE MODEL PARAMETERS
-const WAVENUMBER           = 1.0f0 # * pi # DO NO CHANGE
-# ACCELERATION(r, v)         = -WAVENUMBER^2 * r         # simple harmonic oscillator
-const DOMAINLOWERBOUND     = 0.0f0
-const DOMAINUPPERBOUNDFACTOR = 10
-const DOMAINUPPERBOUND     = DOMAINUPPERBOUNDFACTOR * 2.0f0 * pi
-const INITIALPOSITION      = Float32[0.]
-const INITIALVELOCITY      = Float32[1.]
 
 """
     bench_single(coarse :: Int, fine :: Int) :: NamedTuple
@@ -173,5 +160,23 @@ end
 
 # if this file is explicitly run, then actually do the benchmarks
 if PROGRAM_FILE == @__FILE__
+    # DEFINE CLUSTER
+    const NODEVECTOR           = String["Electromagnetism"]
+    # DEFINE COMPUTATIONAL PARAMETERS
+    const COARSEINTEGRATOR     = symplecticEuler
+    # const COARSEDISCRETIZATION = 2^10                        # how many total problems
+    const FINEINTEGRATOR       = velocityVerlet
+    # const FINEDISCRETIZATION   = 2^10                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
+    # DEFINE MODEL PARAMETERS
+    const WAVENUMBER           = 1.0f0 # * pi # DO NO CHANGE
+    # ACCELERATION(r, v)         = -WAVENUMBER^2 * r         # simple harmonic oscillator
+    const DOMAINLOWERBOUND     = 0.0f0
+    const DOMAINUPPERBOUNDFACTOR = 10
+    const DOMAINUPPERBOUND     = DOMAINUPPERBOUNDFACTOR * 2.0f0 * pi
+    const INITIALPOSITION      = Float32[0.]
+    const INITIALVELOCITY      = Float32[1.]
+
     main()
+end
+
 end
