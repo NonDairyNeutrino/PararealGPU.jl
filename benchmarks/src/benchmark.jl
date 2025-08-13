@@ -1,20 +1,8 @@
-#= 
-Compare the timings of the implementation between how many threads are used.
-Comparing between
-- CPU single threaded
-    - just straight velocityVerlet
-- CPU multithreaded
-    - CPU parareal
-- GPU multithreaded
-    - local GPU parareal
-- distributed
-    - distributed parareal
-=#
-
 using Plots: plot, plot!, savefig
-using BenchmarkTools, DelimitedFiles
+using BenchmarkTools, DelimitedFiles, Distributed
 include("$(pwd())/src/PararealGPU.jl"); using .PararealGPU
 
+const DATADIR = dirname(@__DIR__) * "/data/"
 # DEFINE CLUSTER
 const NODEVECTOR           = String["Electromagnetism"]
 # DEFINE COMPUTATIONAL PARAMETERS
@@ -31,7 +19,12 @@ const DOMAINUPPERBOUND     = DOMAINUPPERBOUNDFACTOR * 2.0f0 * pi
 const INITIALPOSITION      = Float32[0.]
 const INITIALVELOCITY      = Float32[1.]
 
-function bench_single_cpu(coarse :: Int, fine :: Int) :: NamedTuple
+"""
+    bench_single(coarse :: Int, fine :: Int) :: NamedTuple
+
+TBW
+"""
+function bench_single(coarse :: Int, fine :: Int) :: NamedTuple
     maxsteps = coarse * fine
     time_step = (DOMAINUPPERBOUND - DOMAINLOWERBOUND) / maxsteps
     bench = @btimed begin
@@ -42,8 +35,38 @@ function bench_single_cpu(coarse :: Int, fine :: Int) :: NamedTuple
     return bench
 end
 
-function bench_multi_cpu()
-    
+"""
+    bench_all_single(coarse_fine_matrix :: Matrix{Int}; file_name :: String = "") :: Matrix{Float64}
+
+Benchmark all single threaded cases in parallel and return their results, optionally writing the results to a file.
+"""
+function bench_all_single(coarse_fine_matrix :: Matrix{Int}; file_name :: String = "") :: Matrix{Float64}
+    time_matrix = similar(coarse_fine_matrix, Float64)
+
+    Threads.@threads for index in eachindex(coarse_fine_matrix)
+        coarse, fine = coarse_fine_matrix[index]
+        println("Beginning benchmark for single threaded with coarse = $coarse and fine = $fine")
+
+        try
+            bench = bench_single(2^coarse, 2^fine)
+            time_matrix[index] = bench.time
+        catch e
+            println("Caught error for coarse = $coarse fine = $fine.")
+            println("Writing -1.0 to time file.")
+            println("Moving on to next discretization pair.")
+            display(e)
+            time_matrix[index] = -1.0
+        finally
+            if !isempty(file_name)
+                time_file = DATADIR * file_name
+                writedlm(time_file, time_matrix)
+                println("Single threaded runtimes saved to ", time_file)
+            end
+        end
+
+    end
+
+    return time_matrix
 end
 
 function bench_gpu(coarse :: Int, fine :: Int) :: NamedTuple
@@ -59,96 +82,96 @@ function bench_gpu(coarse :: Int, fine :: Int) :: NamedTuple
             INITIALPOSITION,
             INITIALVELOCITY;
             addlocal  = true,
-            localonly = true,
-            # eps(Float32) == 1.1920929f-7
-            # sqrt(eps(Float32)) == 0.00034526698f0
-            # this mirrors isapprox()
-            threshold = sqrt(eps(Float32))
+            localonly = true
         )
     return bench
 end
 
-function bench_distributed()
-    # definition of solve()
-    prepCluster(NODEVECTOR, addlocal = true)
+function bench_all_gpu(coarse_fine_matrix :: Matrix{Int}; file_name :: String = "") :: Matrix{Float64}
+    time_matrix = similar(coarse_fine_matrix, Float64)
 
-    coarse = Propagator(COARSEINTEGRATOR, COARSEDISCRETIZATION)
-    fine   = Propagator(FINEINTEGRATOR,  FINEDISCRETIZATION)
-
-    ivp = build_ivp(
-        ((r, v) -> -WAVENUMBER^2 * r), 
-        DOMAINLOWERBOUND, DOMAINUPPERBOUND, 
-        INITIALPOSITION, INITIALVELOCITY
-    )
-
-    @info "Beginning parareal evaluation"
-    sol = nothing
-    iterations = 0
-    try
-        display(@benchmark @time "Parareal evaluation took " sol, iterations = parareal(
-            ivp, 
-            coarse, 
-            fine; 
-            threshold = sqrt(eps(Float32)), 
-            localonly = false
-        ))
-    finally
-        @info "Closing cluster."
-        rmprocs(workers())
-    end
-    return sol, iterations
-end
-
-function main() :: Nothing
-    coarse_vector      = [14] # collect(3:14)
-    fine_vector        = [14] # collect(9:14)
-    coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
-
-    # bench and write all single threaded benchmarks before doing parallelized methods
-    # single_time_matrix = similar(coarse_fine_matrix, Float64)
-    # Threads.@threads for index in eachindex(coarse_fine_matrix)
-    #     coarse, fine = coarse_fine_matrix[index]
-    #     println("Beginning benchmark for single threaded with coarse = $coarse and fine = $fine")
-    #     single_bench = bench_single_cpu(2^coarse, 2^fine)
-    #     single_time_matrix[index] = single_bench.time
-    # end
-    # writedlm("single_time_matrix.tsv", single_time_matrix)
-
-        # multi-threaded cpu
-        # printstyled("BENCHING MULTI-THREADED CPU", color = :green)
-        # multi_cpu()
-
-    # bench gpu for all discretizations
-    gpu_time_matrix = similar(coarse_fine_matrix, Float64)
     for index in eachindex(coarse_fine_matrix)
         coarse, fine = coarse_fine_matrix[index]
         println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
         try
-            gpu_bench = bench_gpu(2^coarse, 2^fine)
-            gpu_time_matrix[index] = gpu_bench.time
+            bench = bench_gpu(2^coarse, 2^fine)
+            time_matrix[index] = bench.time
         catch e
             println("Caught error for coarse = $coarse fine =$fine.")
             println("Writing -1.0 to time file.")
             println("Moving on to next discretization pair.")
             display(e)
-            gpu_time_matrix[index] = -1.0
+            time_matrix[index] = -1.0
         finally
-            writedlm("gpu_time_matrix_staging.tsv", gpu_time_matrix)
+            if !isempty(file_name)
+                time_file = DATADIR * file_name
+                writedlm(time_file, time_matrix)
+                println("GPU runtimes saved to ", time_file)
+            end
         end
     end
 
-        # printstyled("BENCHING SINGLE GPU\n", color = :green)
-        # gpu_bench = bench_gpu(2^coarse, 2^fine)
-        # time_tensor[2, coarse - 2, fine - 2] = gpu_bench.time
+    return time_matrix
+end
 
-        # distributed
-        # printstyled("BENCHING DISTRIBUTED\n", color = :green)
-        # bench_distributed()
+function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
+    coarse = PararealGPU.Propagator(COARSEINTEGRATOR, coarse_disc)
+    fine   = PararealGPU.Propagator(FINEINTEGRATOR,  fine_disc)
+    bench  = @btimed PararealGPU.parareal(
+        $ivp, 
+        $coarse, 
+        $fine
+    )
+    return bench
+end
 
-        # println("Single CPU: ", Base.rest(single_cpu_bench, 2))
-        # println("Single GPU: ", Base.rest(gpu_bench, 2))
-        # writedlm("time_matrix.tsv", time_tensor)
+function bench_all_distributed(coarse_fine_matrix :: Matrix{Int}; file_name :: String = "") :: Matrix{Float64}
+    time_matrix = similar(coarse_fine_matrix, Float64)
+
+    PararealGPU.prepCluster(NODEVECTOR, addlocal = true)
+    ivp = PararealGPU.build_ivp(
+        ((r, v) -> -WAVENUMBER^2 * r), 
+        DOMAINLOWERBOUND, DOMAINUPPERBOUND, 
+        INITIALPOSITION, INITIALVELOCITY
+    )
+
+    for index in eachindex(coarse_fine_matrix)
+        coarse, fine = coarse_fine_matrix[index]
+        println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
+        try
+            bench = bench_distributed(2^coarse, 2^fine)
+            time_matrix[index] = bench.time
+        catch e
+            println("Caught error for coarse = $coarse fine =$fine.")
+            println("Writing -1.0 to time file.")
+            println("Moving on to next discretization pair.")
+            display(e)
+            time_matrix[index] = -1.0
+        finally
+            if !isempty(file_name)
+                time_file = DATADIR * file_name
+                writedlm(time_file, time_matrix)
+                println("Distributed runtimes saved to ", time_file)
+            end
+        end
+    end
+
+    return time_matrix
+end
+
+function main() :: Nothing
+    coarse_vector      = 3:14
+    fine_vector        = 3:14
+    coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
+
+    bench_all_single(coarse_fine_matrix;      file_name = "single_time_matrix.tsv")
+    bench_all_gpu(coarse_fine_matrix;         file_name = "gpu_time_matrix.tsv")
+    bench_all_distributed(coarse_fine_matrix; file_name = "distributed_time_matrix.tsv")
+
     return nothing
 end
 
-main()
+# if this file is explicitly run, then actually do the benchmarks
+if PROGRAM_FILE == @__FILE__
+    main()
+end
