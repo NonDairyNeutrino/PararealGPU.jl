@@ -2,7 +2,7 @@ module PararealGPUBenchmarks
 export bench_single, bench_all_single, bench_gpu, bench_all_gpu, bench_distributed, bench_all_distributed
 
 using BenchmarkTools, DelimitedFiles, Distributed, JLD2
-const proj_dir = Base.active_project() |> dirname
+const proj_dir = "../../"
 include("$proj_dir/src/PararealGPU.jl"); using .PararealGPU
 
 const DATADIR = dirname(@__DIR__) * "/data/"
@@ -25,10 +25,15 @@ end
 
 TBW
 """
-function bench_single(coarse :: Int, fine :: Int) :: NamedTuple
-    maxsteps = coarse * fine
-    domain   = range(DOMAINLOWERBOUND, DOMAINUPPERBOUND, maxsteps) |> collect
-    bench    = @btimed single($domain, $INITIALPOSITION, $INITIALVELOCITY)
+function bench_single(coarse :: Int) :: NamedTuple
+    # the parareal algorithm converges to a solution that is theoretically identical to that which
+    # be produced by using the fine integrator on the coarse discretization
+    # thus to accurately compare the quality of result between the single threaded and parallel
+    # implementations, the single threaded benchmarks should be done using the fine integrator on
+    # the coarse discretization
+    max_steps = coarse # * fine
+    domain    = range(DOMAINLOWERBOUND, DOMAINUPPERBOUND, max_steps) |> collect
+    bench     = @btimed single($domain, $INITIALPOSITION, $INITIALVELOCITY)
     return bench
 end
 
@@ -37,55 +42,30 @@ end
 
 Benchmark all single threaded cases in parallel and return their results, optionally writing the results to a file.
 """
-function bench_all_single(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; time_file_name :: String = "", sol_file_name :: String = "") :: Tuple{
-        Matrix{Float64},
-        Matrix{Tuple{Solution, Int}}
-    }
+function bench_all_single(coarse_vector :: Vector{Int} #= coarse_fine_matrix :: Matrix{Tuple{Int, Int}} =#) :: Nothing
 
-    time_matrix = similar(coarse_fine_matrix, Float64)
-    sol_matrix  = similar(coarse_fine_matrix, Tuple{Solution, Int})
-
-    # make the time matrix
-    Threads.@threads for index in eachindex(coarse_fine_matrix)
-        coarse, fine = coarse_fine_matrix[index]
-        println("Beginning benchmark for single threaded with coarse = $coarse and fine = $fine")
-
+    cnt = Threads.Atomic{Int}(0)
+    Threads.@threads for index in eachindex(coarse_vector)
+        
+        coarse = coarse_vector[index]
+        println("Beginning single threaded benchmark with coarse = $coarse")
+        bench_file = DATADIR * "single_c$(coarse).jld2"
         try
-            bench = bench_single(2^coarse, 2^fine)
-            time_matrix[index] = bench.time
-            sol_matrix[index]  = bench.value
+            # don't save bench to intermediate variable to prevent memory overflow
+            save_object(bench_file, bench_single(2^coarse))
 
         catch e
-            println("Caught error for coarse = $coarse fine = $fine.")
-            println("Writing -1.0 to time file.")
+            println("Caught error for coarse = $coarse.")
             println("Moving on to next discretization pair.")
             display(e)
-            time_matrix[index] = -1.0
-            sol_matrix[index]  = (Solution(Float64[], [Float64[]], [Float64[]]), 0)
+
+        finally
+            println("Finished ", Threads.atomic_add!(cnt, 1), "/", length(coarse_vector))
         end
 
     end
 
-    # write data after ALL single runs because parallelization would cause a race condition
-    # in the sense that each write doesn't collide but rather writes a different entire matrix
-    # because it's initially unallocated
-    
-    # write the time matrix
-    if !isempty(time_file_name)
-        time_file = DATADIR * time_file_name
-        writedlm(time_file, time_matrix)
-        println("Single threaded runtimes saved to ", time_file)
-    end
-    
-    # write the sol matrix
-    if !isempty(sol_file_name)
-        sol_file_name *= sol_file_name[end-3 : end] == "jld2" ? "" : "jld2"
-        sol_file = DATADIR * sol_file_name
-        jldsave(sol_file, sol_matrix = sol_matrix)
-        println("Single threaded solutions saved to ", sol_file)
-    end
-
-    return time_matrix, sol_matrix
+    return nothing
 end
 
 function bench_gpu(coarse :: Int, fine :: Int) :: NamedTuple
@@ -106,44 +86,42 @@ function bench_gpu(coarse :: Int, fine :: Int) :: NamedTuple
     return bench
 end
 
-function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; time_file_name :: String = "", sol_file_name :: String = "") :: Tuple{
-        Matrix{Float64},
-        Matrix{Tuple{Solution, Int}}
-    }
+function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; time_file_name :: String = "") :: Tuple{Matrix{Float64}}
     time_matrix = similar(coarse_fine_matrix, Float64)
-    sol_matrix  = similar(coarse_fine_matrix, Tuple{Solution, Int})
 
     for index in eachindex(coarse_fine_matrix)
         coarse, fine = coarse_fine_matrix[index]
         println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
+
+        sol = (Solution(Float64[], [Float64[]], [Float64[]]), 0)
         try
             bench = bench_gpu(2^coarse, 2^fine)
             time_matrix[index] = bench.time
-            sol_matrix[index]  = bench.value
+            sol                = bench.value
+
         catch e
             println("Caught error for coarse = $coarse fine =$fine.")
             println("Writing -1.0 to time file.")
             println("Moving on to next discretization pair.")
             display(e)
             time_matrix[index] = -1.0
-            sol_matrix[index]  = (Solution(Float64[], [Float64[]], [Float64[]]), 0)
+            # if error write outer sol to file
+
         finally
+
             if !isempty(time_file_name)
                 time_file = DATADIR * time_file_name
                 writedlm(time_file, time_matrix)
                 println("GPU runtimes saved to ", time_file)
             end
 
-            if !isempty(sol_file_name)
-                sol_file_name *= sol_file_name[end-3 : end] == "jld2" ? "" : "jld2"
-                sol_file = DATADIR * sol_file_name
-                jldsave(sol_file, sol_matrix = sol_matrix)
-                println("GPU solutions saved to ", sol_file)
-            end
+            sol_file = DATADIR * "sol_gpu_c$(coarse)_f$(fine).jld2"
+            save_object(sol_file, sol)
+            println("GPU solutions saved to ", sol_file)
         end
     end
 
-    return time_matrix, sol_matrix
+    return time_matrix
 end
 
 function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
@@ -157,12 +135,8 @@ function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
     return bench
 end
 
-function bench_all_distributed(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; time_file_name :: String = "", sol_file_name :: String = "") :: Tuple{
-        Matrix{Float64},
-        Matrix{Tuple{Solution, Int}}
-    }
+function bench_all_distributed(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; time_file_name :: String = "") :: Tuple{Matrix{Float64}}
     time_matrix = similar(coarse_fine_matrix, Float64)
-    sol_matrix  = similar(coarse_fine_matrix, Tuple{Solution, Int})
 
     PararealGPU.prepCluster(NODEVECTOR, addlocal = true)
     ivp = PararealGPU.build_ivp(
@@ -174,17 +148,20 @@ function bench_all_distributed(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; ti
     for index in eachindex(coarse_fine_matrix)
         coarse, fine = coarse_fine_matrix[index]
         println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
+
+        sol = (Solution(Float64[], [Float64[]], [Float64[]]), 0)
         try
             bench = bench_distributed(2^coarse, 2^fine)
             time_matrix[index] = bench.time
-            sol_matrix[index]  = bench.value
+            sol                = bench.value
+
         catch e
             println("Caught error for coarse = $coarse fine =$fine.")
             println("Writing -1.0 to time file.")
             println("Moving on to next discretization pair.")
             display(e)
             time_matrix[index] = -1.0
-            sol_matrix[index]  = (Solution(Float64[], [Float64[]], [Float64[]]), 0)
+            # if error write outer sol to file
         finally
             if !isempty(time_file_name)
                 time_file = DATADIR * time_file_name
@@ -192,16 +169,13 @@ function bench_all_distributed(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; ti
                 println("Distributed runtimes saved to ", time_file)
             end
 
-            if !isempty(sol_file_name)
-                sol_file_name *= sol_file_name[end-3 : end] == "jld2" ? "" : "jld2"
-                sol_file = DATADIR * sol_file_name
-                jldsave(sol_file, sol_matrix = sol_matrix)
-                println("Single threaded solutions saved to ", sol_file)
-            end
+            sol_file = DATADIR * "sol_dist_c$(coarse)_f$(fine).jld2"
+            save_object(sol_file, sol)
+            println("Distributed solutions saved to ", sol_file)
         end
     end
 
-    return time_matrix, sol_matrix
+    return time_matrix
 end
 
 function main() :: Nothing
@@ -209,16 +183,16 @@ function main() :: Nothing
     fine_vector        = 3:14
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
-    jldsave(DATADIR * "disc_matrix.jld2", cf_matrix = coarse_fine_matrix)
-    bench_all_single(coarse_fine_matrix;      time_file_name = "single_time_matrix.tsv", sol_file_name = "single_sol_matrix.jld2")
-    bench_all_gpu(coarse_fine_matrix;         time_file_name = "gpu_time_matrix.tsv",    sol_file_name = "gpu_sol_matrix.jld2")
-    bench_all_distributed(coarse_fine_matrix; time_file_name = "dist_time_matrix.tsv",   sol_file_name = "dist_sol_matrix.jld2")
+    save_object(DATADIR * "disc_matrix.jld2", coarse_fine_matrix)
+    bench_all_single(coarse_vector)
+    # bench_all_gpu(coarse_fine_matrix;         time_file_name = "gpu_time_matrix.tsv")
+    # bench_all_distributed(coarse_fine_matrix; time_file_name = "dist_time_matrix.tsv")
 
     return nothing
 end
 
 # if this file is explicitly run, then actually do the benchmarks
-# if abspath(PROGRAM_FILE) == @__FILE__
+if abspath(PROGRAM_FILE) == @__FILE__
     # DEFINE CLUSTER
     const NODEVECTOR           = String["Electromagnetism"]
     # DEFINE COMPUTATIONAL PARAMETERS
@@ -236,6 +210,6 @@ end
     const INITIALVELOCITY      = Float32[1.]
 
     main()
-# end
+end
 
 end
