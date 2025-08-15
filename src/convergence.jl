@@ -3,7 +3,7 @@
         old_sol :: Solution{T}, 
         new_sol :: Solution{T}, 
         seq     :: Symbol; 
-        rtol    :: T = sqrt(eps(T))
+        threshold    :: T = sqrt(eps(T))
     ) :: Tuple{Bool, T} where T <: AbstractFloat
 
 Determines convergence of the given property given the previous and and current solutions.
@@ -12,7 +12,7 @@ function hasConverged(
         old_sol :: Solution{T}, 
         new_sol :: Solution{T}, 
         seq :: Symbol;
-        rtol :: T = sqrt(eps(T))
+        threshold :: T = sqrt(eps(T))
     ) :: Bool where T <: AbstractFloat
     # the initial condition never changes so just skip it
     old_seq             = getproperty(old_sol, seq)[2:end]
@@ -33,7 +33,7 @@ function hasConverged(
     The norm of a vector of vectors is the norm of the vector of norms i.e.
     norm(v :: Vector{Vector}) == LinearAlgebra.norm(norm.(v))
     =#
-    has_converged       = isapprox(old_seq, new_seq, rtol=rtol) #= relativeChange <= threshold =#
+    has_converged       = isapprox(old_seq, new_seq, rtol=threshold) #= relativeChange <= threshold =#
     return has_converged
 end
 
@@ -41,7 +41,7 @@ end
     hasConverged(
         oldSolution :: Solution{T}, 
         newSolution :: Solution{T}; 
-        rtol        :: T = sqrt(eps(T))
+        threshold        :: T = sqrt(eps(T))
     ) :: Bool where T <: AbstractFloat
 
 Determines convergence of both position and velocity given the previous and current solutions.
@@ -49,10 +49,10 @@ Determines convergence of both position and velocity given the previous and curr
 function hasConverged(
         oldSolution :: Solution{T}, 
         newSolution :: Solution{T}; 
-        rtol        :: T = sqrt(eps(T))
+        threshold        :: T = sqrt(eps(T))
     ) :: Bool where T <: AbstractFloat
-    position_has_converged = hasConverged(oldSolution, newSolution, :positionSequence, rtol = rtol)
-    velocity_has_converged = hasConverged(oldSolution, newSolution, :velocitySequence, rtol = rtol)
+    position_has_converged = hasConverged(oldSolution, newSolution, :positionSequence, threshold = threshold)
+    velocity_has_converged = hasConverged(oldSolution, newSolution, :velocitySequence, threshold = threshold)
     has_converged          = position_has_converged && velocity_has_converged
     return has_converged
 end
