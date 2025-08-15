@@ -1,5 +1,5 @@
-module PararealGPUBenchmarks
-export bench_single, bench_all_single, bench_gpu, bench_all_gpu, bench_distributed, bench_all_distributed
+# module PararealGPUBenchmarks
+# export bench_single, bench_all_single, bench_gpu, bench_all_gpu, bench_distributed, bench_all_distributed
 
 using BenchmarkTools, DelimitedFiles, Distributed, JLD2
 const proj_dir = "../../"
@@ -68,25 +68,25 @@ function bench_all_single(coarse_vector :: Vector{Int} #= coarse_fine_matrix :: 
     return nothing
 end
 
-function bench_gpu(coarse :: Int, fine :: Int) :: NamedTuple
+function bench_gpu(coarse :: Int, fine :: Int, params) :: NamedTuple
     bench = @btimed solve(
-            NODEVECTOR,
-            COARSEINTEGRATOR,
+            $params.NODEVECTOR,
+            $params.COARSEINTEGRATOR,
             $coarse,
-            FINEINTEGRATOR,
+            $params.FINEINTEGRATOR,
             $fine,
-            ((r, v) -> -WAVENUMBER^2 * r),
-            DOMAINLOWERBOUND,
-            DOMAINUPPERBOUND,
-            INITIALPOSITION,
-            INITIALVELOCITY;
+            $((r, v) -> -(1)^2 * r),
+            $params.DOMAINLOWERBOUND,
+            $params.DOMAINUPPERBOUND,
+            $params.INITIALPOSITION,
+            $params.INITIALVELOCITY;
             addlocal  = true,
             localonly = true
         )
     return bench
 end
 
-function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}) :: Nothing
+function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}, params) :: Nothing
 
     bench_file_name = DATADIR * "bench_gpu.jld2"
     bench_file      = jldopen(bench_file_name, "w")
@@ -97,12 +97,13 @@ function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}) :: Nothing
 
         try
             # don't save bench to intermediate variable to prevent memory overflow
-            write(bench_file, "$coarse/$fine", bench_gpu(2^coarse, 2^fine))
+            write(bench_file, "$coarse/$fine", bench_gpu(2^coarse, 2^fine, params))
 
         catch e
             println("Caught error for coarse = $coarse, fine = $fine.")
             println("Moving on to next discretization pair.")
             display(e)
+            rethrow()
 
         finally
             println("Finished ", index, "/", length(coarse_fine_matrix))
@@ -114,9 +115,9 @@ function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}) :: Nothing
     return nothing
 end
 
-function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
-    coarse = PararealGPU.Propagator(COARSEINTEGRATOR, coarse_disc)
-    fine   = PararealGPU.Propagator(FINEINTEGRATOR,  fine_disc)
+function bench_distributed(coarse_disc :: Int, fine_disc :: Int, ivp, params) :: NamedTuple
+    coarse = PararealGPU.Propagator(params.COARSEINTEGRATOR, coarse_disc)
+    fine   = PararealGPU.Propagator(params.FINEINTEGRATOR,  fine_disc)
     bench  = @btimed PararealGPU.parareal(
         $ivp, 
         $coarse, 
@@ -125,72 +126,65 @@ function bench_distributed(coarse_disc :: Int, fine_disc :: Int) :: NamedTuple
     return bench
 end
 
-function bench_all_distributed(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}; time_file_name :: String = "") :: Tuple{Matrix{Float64}}
-    time_matrix = similar(coarse_fine_matrix, Float64)
+function bench_all_distributed(coarse_vector :: Vector{Int}, fine_vector :: Vector{Int}, params) :: Nothing
 
-    PararealGPU.prepCluster(NODEVECTOR, addlocal = true)
+    PararealGPU.prepCluster(params.NODEVECTOR, addlocal = true)
     ivp = PararealGPU.build_ivp(
-        ((r, v) -> -WAVENUMBER^2 * r), 
-        DOMAINLOWERBOUND, DOMAINUPPERBOUND, 
-        INITIALPOSITION, INITIALVELOCITY
+        let k = params.WAVENUMBER; ((r, v) -> -k^2 * r) end, # use let to effectively interpolate wavenumber
+        params.DOMAINLOWERBOUND, params.DOMAINUPPERBOUND, 
+        params.INITIALPOSITION, params.INITIALVELOCITY
     )
 
-    for index in eachindex(coarse_fine_matrix)
-        coarse, fine = coarse_fine_matrix[index]
-        println("Beginning benchmark for gpu with coarse = $coarse and fine = $fine")
+    for coarse in coarse_vector
+        bench_file_coarse = jldopen(DATADIR * "bench_dist_c$coarse.jld2", "w")
+        for fine in fine_vector
+            println("Beginning distributed benchmark with coarse = $coarse, fine = $fine")
 
-        sol = (Solution(Float64[], [Float64[]], [Float64[]]), 0)
-        try
-            bench = bench_distributed(2^coarse, 2^fine)
-            time_matrix[index] = bench.time
-            sol                = bench.value
+            try
+                # don't save bench to intermediate variable to prevent memory overflow
+                write(bench_file_coarse, "$fine", bench_distributed(2^coarse, 2^fine, ivp, params))
 
-        catch e
-            println("Caught error for coarse = $coarse fine =$fine.")
-            println("Writing -1.0 to time file.")
-            println("Moving on to next discretization pair.")
-            display(e)
-            time_matrix[index] = -1.0
-            # if error write outer sol to file
-        finally
-            if !isempty(time_file_name)
-                time_file = DATADIR * time_file_name
-                writedlm(time_file, time_matrix)
-                println("Distributed runtimes saved to ", time_file)
+            catch e
+                println("Caught error for coarse = $coarse, fine = $fine.")
+                println("Moving on to next discretization pair.")
+                display(e)
+                # rethrow()
+
+            finally
+                println("Finished coarse: ", coarse, " fine: ", fine)
+
             end
-
-            sol_file = DATADIR * "sol_dist_c$(coarse)_f$(fine).jld2"
-            save_object(sol_file, sol)
-            println("Distributed solutions saved to ", sol_file)
         end
+        close(bench_file_coarse)
     end
 
-    return time_matrix
+    return nothing
 end
 
-function main() :: Nothing
+function main(params) :: Nothing
     coarse_vector      = 3:14 |> collect
     fine_vector        = 3:14 |> collect
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
     save_object(DATADIR * "disc_matrix.jld2", coarse_fine_matrix)
     # bench_all_single(coarse_vector)
-    bench_all_gpu(coarse_fine_matrix)
-    # bench_all_distributed(coarse_fine_matrix; time_file_name = "dist_time_matrix.tsv")
+    # bench_all_gpu(coarse_fine_matrix, params)
+    bench_all_distributed(coarse_vector, fine_vector, params)
 
     return nothing
 end
 
+# end
+
 # if this file is explicitly run, then actually do the benchmarks
-if abspath(PROGRAM_FILE) == @__FILE__
-    # DEFINE CLUSTER
+# if abspath(PROGRAM_FILE) == @__FILE__
+    # const proj_dir = "../../"
+    # include("$proj_dir/src/PararealGPU.jl"); using .PararealGPU: symplecticEuler, velocityVerlet
+    # using .PararealGPUBenchmarks
+
     const NODEVECTOR           = String["Electromagnetism"]
-    # DEFINE COMPUTATIONAL PARAMETERS
     const COARSEINTEGRATOR     = symplecticEuler
-    # const COARSEDISCRETIZATION = 2^10                        # how many total problems
     const FINEINTEGRATOR       = velocityVerlet
-    # const FINEDISCRETIZATION   = 2^10                         # 2^10 = 1024 steps -> each step is ~0.01% of the domain
-    # DEFINE MODEL PARAMETERS
     const WAVENUMBER           = 1.0f0 # * pi # DO NO CHANGE
     # ACCELERATION(r, v)         = -WAVENUMBER^2 * r         # simple harmonic oscillator
     const DOMAINLOWERBOUND     = 0.0f0
@@ -199,7 +193,14 @@ if abspath(PROGRAM_FILE) == @__FILE__
     const INITIALPOSITION      = Float32[0.]
     const INITIALVELOCITY      = Float32[1.]
 
-    main()
-end
-
-end
+    main((
+        NODEVECTOR = NODEVECTOR, 
+        COARSEINTEGRATOR = COARSEINTEGRATOR, 
+        FINEINTEGRATOR = FINEINTEGRATOR, 
+        WAVENUMBER = WAVENUMBER, 
+        DOMAINLOWERBOUND = DOMAINLOWERBOUND, 
+        DOMAINUPPERBOUND = DOMAINUPPERBOUND,
+        INITIALPOSITION = INITIALPOSITION,
+        INITIALVELOCITY = INITIALVELOCITY
+    ))
+# end
