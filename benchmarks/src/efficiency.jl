@@ -85,57 +85,31 @@ function plot_eff(x_vector :: Vector{Int}, xlabel :: String, z_vector :: Vector{
     )
 end
 
-# function main()
-#     coarse_vector = 3:14 |> collect
-#     fine_vector   = 3:14 |> collect
-#     eff_matrix = calculate_efficiency(coarse_vector, fine_vector)
-#     plot_eff(coarse_vector, fine_vector, eff_matrix)
-# end
+function plot_eff(coarse_vector, fine_vector, bench)
+    eff_matrix = calculate_efficiency(coarse_vector, fine_vector, bench)
+    zeroed_em  = map(x -> isapprox(x, 0.0; atol = 10^-10) ? NaN : x, eff_matrix)
+    abs_zem    = abs.(zeroed_em)
 
-const DATADIR = dirname(@__DIR__) * "/data/"
-const GRAVITY              = 9.81
-const RODLENGTH            = GRAVITY
-const PERIOD               = sqrt(RODLENGTH / GRAVITY)
-const INITIALPOSITION      = Float32[0.]
-const INITIALVELOCITY      = Float32[1.]
-
-# the  true energy is equal to initial energy, because it doesn't change
-# in this case the initial energy is just the kinetic energy because the bob is at the bottom
-# energy in terms of mass, will get canceled when comparing to simulated
-# and I don't want to write the potential energy
-const init_pot_energy = GRAVITY * RODLENGTH * (1 - cos(sum(abs2, INITIALPOSITION)))
-const init_kin_energy = 0.5 * sum(abs2, INITIALVELOCITY)
-const TRUE_ENERGY     = init_kin_energy + init_pot_energy
-
-# main()
-coarse_vector = 3:14 |> collect
-fine_vector   = 3:14 |> collect
-gpu_bench     = load(DATADIR * "bench_gpu.jld2"; nested = true)
-eff_matrix    = calculate_efficiency(coarse_vector, fine_vector, gpu_bench)
-zeroed_em = map(x -> isapprox(x, 0.0; atol = 10^-10) ? NaN : x, eff_matrix)
-abs_zem = abs.(zeroed_em)
-
-function plot_eff()
     # coarse plot
     cplot = plot(
         2 .^ coarse_vector[3:end],
-        abs_zem[3:end, -2 .+ [6, 8 ,10, 12, 14]],
+        abs_zem[3:end, -2 .+ [5, 8, 9, 12]],
         xticks = 2 .^ coarse_vector[3:end],
         yticks = 10.0 .^ (-10:2:10),
         xlabel = latexstring("N_\\mathcal{C}"),
         ylabel = L"$\left| \epsilon \tau  / \epsilon_1 \tau_1 \right|$",
-        labels = (f -> latexstring("N_\\mathcal{F} = 2^{$f}")).(fine_vector[-2 .+ [6, 8 ,10, 12, 14]]) |> permutedims,
+        labels = (f -> latexstring("N_\\mathcal{F} = 2^{$f}")).(fine_vector[-2 .+ [5, 8, 9, 12]]) |> permutedims,
         leg    = :bottomright
     )
 
     # fine plot
     fplot = plot(
         2 .^ fine_vector[3:end],
-        permutedims(abs_zem)[3:end, -2 .+ [6, 8 ,10, 12, 14]],
+        permutedims(abs_zem)[3:end, -2 .+ [5, 8, 9, 12]],
         xticks = 2 .^ fine_vector[3:end],
         yticks = false,
         xlabel = latexstring("N_\\mathcal{F}"),
-        labels = (f -> latexstring("N_\\mathcal{C} = 2^{$f}")).(coarse_vector[-2 .+ [6, 8 ,10, 12, 14]]) |> permutedims,
+        labels = (f -> latexstring("N_\\mathcal{C} = 2^{$f}")).(coarse_vector[-2 .+ [5, 8, 9, 12]]) |> permutedims,
         leg    = :topleft
     )
     
@@ -147,6 +121,57 @@ function plot_eff()
         layout = (1,2), 
         link = :y,
         linewidth   = 2
+    )
+end
+
+function plot_method_comp(coarse_vector, fine_vector, gpu_bench, dist_bench)
+    cv = coarse_vector[3:end]
+    fv = fine_vector[3:end]
+
+    gpu_eff_matrix = calculate_efficiency(cv, fv, gpu_bench)
+    gpu_zeroed_em  = map(x -> isapprox(x, 0.0; atol = 10^-10) ? NaN : x, gpu_eff_matrix)
+    gpu_abs_zem    = abs.(gpu_zeroed_em)
+
+    dist_eff_matrix = calculate_efficiency(cv, fv, dist_bench)
+    dist_zeroed_em  = map(x -> isapprox(x, 0.0; atol = 10^-10) ? NaN : x, dist_eff_matrix)
+    dist_abs_zem    = abs.(dist_zeroed_em)
+
+
+
+    # disc_slices = [-2 .+ [6,8,10,12]]
+    best_disc = 8 # 6 == 2^10
+
+    # coarse plot
+    cplot = plot(
+        2 .^ cv,
+        [gpu_abs_zem[:, best_disc] dist_abs_zem[:, best_disc]],
+        xticks = 2 .^ cv,
+        yticks = 10.0 .^ (-10:2:10),
+        xlabel = latexstring("N_\\mathcal{C}"),
+        ylabel = L"$\left| \epsilon \tau  / \epsilon_1 \tau_1 \right|$",
+        leg    = :bottomright
+    )
+
+    # fine plot
+    fplot = plot(
+        2 .^ fv,
+        [gpu_abs_zem[best_disc, :] dist_abs_zem[best_disc, :]],
+        xticks = 2 .^ fv,
+        yticks = false,
+        xlabel = latexstring("N_\\mathcal{F}"),
+        # labels = (f -> latexstring("N_\\mathcal{C} = 2^{$f}")).(coarse_vector[-2 .+ [5, 8, 9, 12]]) |> permutedims,
+        leg    = :bottomright
+    )
+    
+    plot(
+        cplot, 
+        fplot;
+        xscale = :log2,
+        yscale = :log10,
+        layout = (1,2), 
+        link = :y,
+        linewidth   = 2,
+        labels = ["GPU" "Dist"]
     )
 end
 
@@ -222,3 +247,34 @@ function plot_position()
         link = :x
     )
 end
+
+# function main()
+#     coarse_vector = 3:14 |> collect
+#     fine_vector   = 3:14 |> collect
+#     eff_matrix = calculate_efficiency(coarse_vector, fine_vector)
+#     plot_eff(coarse_vector, fine_vector, eff_matrix)
+# end
+
+const DATADIR = dirname(@__DIR__) * "/data/"
+const GRAVITY              = 9.81
+const RODLENGTH            = GRAVITY
+const PERIOD               = sqrt(RODLENGTH / GRAVITY)
+const INITIALPOSITION      = Float32[0.]
+const INITIALVELOCITY      = Float32[1.]
+
+# the  true energy is equal to initial energy, because it doesn't change
+# in this case the initial energy is just the kinetic energy because the bob is at the bottom
+# energy in terms of mass, will get canceled when comparing to simulated
+# and I don't want to write the potential energy
+const init_pot_energy = GRAVITY * RODLENGTH * (1 - cos(sum(abs2, INITIALPOSITION)))
+const init_kin_energy = 0.5 * sum(abs2, INITIALVELOCITY)
+const TRUE_ENERGY     = init_kin_energy + init_pot_energy
+
+# main()
+coarse_vector = 3:13 |> collect
+fine_vector   = 3:13 |> collect
+gpu_bench     = load(DATADIR * "bench_gpu.jld2"; nested = true)
+dist_bench    = load(DATADIR * "bench_dist.jld2"; nested = true)
+# eff_matrix    = calculate_efficiency(coarse_vector, fine_vector, dist_bench)
+# zeroed_em = map(x -> isapprox(x, 0.0; atol = 10^-10) ? NaN : x, eff_matrix)
+# abs_zem = abs.(zeroed_em)
