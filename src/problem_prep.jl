@@ -46,8 +46,10 @@ end
         initialPosition      :: Vector{T},
         initialVelocity      :: Vector{T};
         addlocal             :: Bool = false,
-        threshold            :: T    = convert(T, 10)
-    ) :: Solution{T} where T <: AbstractFloat
+        localonly            :: Bool = false,
+        threshold            :: T    = sqrt(eps(T)),
+        initialSolution      :: String = ""
+    ) :: Tuple{Solution{T}, Int} where T <: AbstractFloat
 
 Solves the given problem using the given coarse and fine propagators.
 """
@@ -64,7 +66,7 @@ function solve(
         initialVelocity      :: Vector{T};
         addlocal             :: Bool = false,
         localonly            :: Bool = false,
-        threshold            :: T    = max(eps(T), 10^-10),
+        threshold            :: T    = sqrt(eps(T)),
         initialSolution      :: String = ""
     ) :: Tuple{Solution{T}, Int} where T <: AbstractFloat
     !isempty(initialSolution) && @warn "Starting from checkpointed solution: $initialSolution"
