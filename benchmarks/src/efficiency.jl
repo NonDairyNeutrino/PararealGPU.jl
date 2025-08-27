@@ -1,4 +1,4 @@
-#= 
+#=
 Measure how a combination of error and runtime changes as the coarse discretization increases
 =#
 using JLD2, Plots, LaTeXStrings
@@ -25,7 +25,7 @@ function calculate_efficiency(bench_seq, bench_par) :: Float64
     seq_sol, iters = bench_seq.value
     seq_err        = calculate_error(seq_sol)
     seq_runtime    = bench_seq.time
-    
+
     par_sol, iters = bench_par.value
     par_err        = calculate_error(par_sol)
     par_runtime    = bench_par.time
@@ -112,13 +112,13 @@ function plot_eff(coarse_vector, fine_vector, bench)
         labels = (f -> latexstring("N_\\mathcal{C} = 2^{$f}")).(coarse_vector[-2 .+ [5, 8, 9, 12]]) |> permutedims,
         leg    = :topleft
     )
-    
+
     plot(
-        cplot, 
+        cplot,
         fplot;
         xscale = :log2,
         yscale = :log10,
-        layout = (1,2), 
+        layout = (1,2),
         link = :y,
         linewidth   = 2
     )
@@ -162,13 +162,13 @@ function plot_method_comp(coarse_vector, fine_vector, gpu_bench, dist_bench)
         # labels = (f -> latexstring("N_\\mathcal{C} = 2^{$f}")).(coarse_vector[-2 .+ [5, 8, 9, 12]]) |> permutedims,
         leg    = :bottomright
     )
-    
+
     plot(
-        cplot, 
+        cplot,
         fplot;
         xscale = :log2,
         yscale = :log10,
-        layout = (1,2), 
+        layout = (1,2),
         link = :y,
         linewidth   = 2,
         labels = ["GPU" "Dist"]
@@ -182,8 +182,8 @@ function plot_position()
             domain, pos, vel = bench["$coarse"].value[1].domain
             plot!(
                 single_plot,
-                domain ./ PERIOD, 
-                pos .|> only; 
+                domain ./ PERIOD,
+                pos .|> only;
                 label = false #= latexstring("\\mathcal{C} = 2^{$coarse}") =#,
                 leg   = :bottomleft,
                 xticks = false,
@@ -240,9 +240,9 @@ function plot_position()
     end
 
     plot(
-        single_plot, 
+        single_plot,
         gpu_plot,
-        dist_plot; 
+        dist_plot;
         layout = (3,1),
         link = :x
     )
@@ -271,8 +271,9 @@ const init_kin_energy = 0.5 * sum(abs2, INITIALVELOCITY)
 const TRUE_ENERGY     = init_kin_energy + init_pot_energy
 
 # main()
-coarse_vector = 3:13 |> collect
-fine_vector   = 3:13 |> collect
+coarse_vector = 3:14 |> collect
+fine_vector   = 3:14 |> collect
+single_bench  = load(DATADIR * "bench_single.jld2")
 gpu_bench     = load(DATADIR * "bench_gpu.jld2"; nested = true)
 dist_bench    = load(DATADIR * "bench_dist.jld2"; nested = true)
 # eff_matrix    = calculate_efficiency(coarse_vector, fine_vector, dist_bench)
