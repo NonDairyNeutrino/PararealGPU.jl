@@ -27,9 +27,8 @@ const INITIALVELOCITY      = Float32[1.]
 # and I don't want to write the potential energy
 const INITIALENERGY = (1//2) * MASS * sum(abs2, INITIALVELOCITY) # = ||v||^2
 
-function plot_raw_energy(bench_file :: String, coarse :: Int, fine :: Int; drawpotential = false, drawkinetic = false)
-    bench_dist = load(bench_file; nested = true)
-    bench      = bench_dist["$coarse"]["$fine"]
+function plot_energy_time(bench_file :: String, coarse :: Int, fine :: Int; drawpotential = false, drawkinetic = false)
+    bench      = load_bench(bench_file, coarse, fine)
     sol        = bench.value[1]
     pos        = sol.positionSequence
     vel        = sol.velocitySequence
@@ -61,7 +60,20 @@ function plot_raw_energy(bench_file :: String, coarse :: Int, fine :: Int; drawp
         ylabel = L"E/E_0",
         style  = style,
         linewidth = 2,
-        size = (s -> (MathConstants.golden * s, s))(400) # (733, 567) # <-- aspect ratio of Letter paper 
+        size = (h -> (MathConstants.golden * h, h))(400) # (733, 567) # <-- aspect ratio of Letter paper 
     )
     return plt
+end
+
+function plot_error_disc(bench_file :: String, coarse :: Int, fine :: Int)
+    bench_dist = load(bench_file; nested = true)
+    for coarse in keys(bench_dist)
+        bench_coarse = bench_dist[coarse]
+        for fine in keys(bench_coarse)
+            bench = bench_coarse[fine]
+            # TODO: calculate error here
+        end
+    end
+    sol   = bench.value[1]
+    calculate_error(INITIALENERGY, sol)
 end

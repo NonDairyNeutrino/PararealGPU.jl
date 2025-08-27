@@ -122,9 +122,11 @@ function compare_efficiency(initial_energy :: Float64, bench_seq, bench_par; mas
     return eff
 end
 
-# function map_data()
-
-# end
+function load_bench(bench_file :: String, coarse :: Int, fine :: Int)
+    bench_dist = load(bench_file; nested = true)
+    bench      = bench_dist["$coarse"]["$fine"]
+    return bench
+end
 
 # for method in ["single", "gpu", "dist"]
 #     bench_method_name = "bench_" * method * ".jld2"
