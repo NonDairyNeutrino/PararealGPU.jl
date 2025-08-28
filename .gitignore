@@ -24,8 +24,7 @@ docs/site/
 Manifest.toml
 
 .vscode/*
-#*/images/
 *.pdf
-*\~
 solution_checkpoint.txt
 log.log
+*.jld2

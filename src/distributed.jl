@@ -47,7 +47,7 @@ function spawnManagers(remoteHostNameVector :: Vector{String}; addlocal :: Bool 
     managerVector       = addlocal ? [localManager; remoteManagerVector] : remoteManagerVector
 
     @info string("Loading PararealGPU.jl on all manager processes")
-    @eval @everywhere workers() include("$(pwd())/src/PararealGPU.jl")
+    @eval @everywhere workers() include("../../src/PararealGPU.jl")
     @eval @everywhere workers() using .PararealGPU
     printstyled("PararealGPU.jl loaded on all manager processes\n", color=:green)
     return managerVector
@@ -84,7 +84,7 @@ function spawnWorkers(managerVector :: Vector{Int}; addlocal = false) :: Vector{
     end
 
     @info string("Loading PararealGPU on each worker process")
-    @eval @everywhere $deviceWorkers include("$(pwd())/src/PararealGPU.jl")
+    @eval @everywhere $deviceWorkers include("../../src/PararealGPU.jl")
     @eval @everywhere $deviceWorkers using .PararealGPU
     printstyled("PararealGPU loaded on all worker processes.\n", color=:green)
     return hdcVector

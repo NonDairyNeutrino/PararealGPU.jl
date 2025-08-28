@@ -32,9 +32,10 @@ function velocityVerlet(
         acceleration :: A, 
         step :: F
     ) :: Tuple{V, V} where {V <: AbstractVector, A <: Function, F <: AbstractFloat}
+    half            = 1//2
     oldAcceleration = acceleration(position, velocity)
-    newPosition     = position + velocity * step + 0.5 * oldAcceleration * step^2
+    newPosition     = position + velocity * step + half * oldAcceleration * step * step
     newAcceleration = acceleration(newPosition, velocity)
-    newVelocity     = velocity + 0.5 * (oldAcceleration + newAcceleration) * step
-    return newPosition, newVelocity
+    newVelocity     = velocity + half * (oldAcceleration + newAcceleration) * step
+    return (newPosition, newVelocity)
 end

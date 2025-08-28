@@ -275,18 +275,10 @@ function parareal(
         )
 # ==================================================================================================
         newSolution = rootSolution
-        has_converged, maxPositionPercentChange, maxVelocityPercentChange = hasConverged(oldSolution, newSolution; threshold)
+        has_converged = hasConverged(oldSolution, newSolution; threshold)
         oldSolution = newSolution
-        if #= iteration in percentage_iterations && =# !iszero(maxPositionPercentChange) && !iszero(maxVelocityPercentChange)
-            @info string(
-                "Finished iteration $iteration at ",
-                round(Dates.now(), Dates.Minute),
-                ": log10(max(|%Δposition|)) = ", 
-                round(Int, maxPositionPercentChange |> log10),
-                ", log10(max(|%Δvelocity|)) = ", 
-                round(Int, maxVelocityPercentChange |> log10)
-            )
-        end
+        @info "Finished iteration $iteration at $(round(Dates.now(), Dates.Minute))"
+
         # create new sub problems
         if iteration != initialDiscretization && !has_converged  # no need for new subproblems after last iteration
             # println("Updating subproblems")
@@ -296,8 +288,6 @@ function parareal(
                 ivp.acceleration
             )
         end
-
-        
     end
 # ==================================================================================================
     if iteration != maxIterations
