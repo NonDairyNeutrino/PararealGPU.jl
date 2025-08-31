@@ -128,6 +128,20 @@ function load_bench(bench_file :: String, coarse :: Int, fine :: Int)
     return bench
 end
 
+function permutedict(dict_file :: String)
+    dict = load(dict_file; nested = true)
+    cv = keys(dict)
+    fv = keys(dict["3"])
+    permdict = Dict(fv .=> Ref(Dict{String, Any}()))
+
+    for coarse in cv
+        for fine in fv
+            push!(permdict[fine], coarse => dict[coarse][fine])
+        end
+    end
+    return permdict
+end
+
 # for method in ["single", "gpu", "dist"]
 #     bench_method_name = "bench_" * method * ".jld2"
 #     bench_method      = jldopen(bench_method_name)
