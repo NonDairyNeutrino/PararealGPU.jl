@@ -121,35 +121,3 @@ function compare_efficiency(initial_energy :: Float64, bench_seq, bench_par; mas
     eff     = par_eff / seq_eff
     return eff
 end
-
-function load_bench(bench_file :: String, coarse :: Int, fine :: Int)
-    bench_dist = load(bench_file; nested = true)
-    bench      = bench_dist["$coarse"]["$fine"]
-    return bench
-end
-
-function permutedict(dict_file :: String)
-    dict = load(dict_file; nested = true)
-    cv = keys(dict)
-    fv = keys(dict["3"])
-    permdict = Dict(fv .=> Ref(Dict{String, Any}()))
-
-    for coarse in cv
-        for fine in fv
-            push!(permdict[fine], coarse => dict[coarse][fine])
-        end
-    end
-    return permdict
-end
-
-# for method in ["single", "gpu", "dist"]
-#     bench_method_name = "bench_" * method * ".jld2"
-#     bench_method      = jldopen(bench_method_name)
-#     for coarse in 3:14
-#         bench_coarse = bench_method["$coarse"]
-#         for fine in 3:14
-#             bench = method == "single" ? bench_coarse : bench_coarse["$fine"]
-#             bench.value[1].domain |> display
-#         end
-#     end
-# end
