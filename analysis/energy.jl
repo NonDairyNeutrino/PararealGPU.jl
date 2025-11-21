@@ -9,6 +9,7 @@ using LaTeXStrings, JLD2
 include("$(pwd())/src/PararealGPU.jl")
 using .PararealGPU
 include("analysis.jl")
+include(joinpath(pwd(), "benchmarks", "src", "dictslice.jl"))
 
 # DEFINE MODEL PARAMETERS
 # the frequency (spatial or temporal) constrains the potential values for the length of the rod
@@ -36,7 +37,8 @@ const INITIALENERGY = 0.5 * MASS * sum(abs2, INITIALVELOCITY) # = ||v||^2
 Calculate and plot the energy over the simulated time.
 """
 function plot_energy_time(bench_file :: String, coarse :: Int, fine :: Int; drawpotential = false, drawkinetic = false)
-    bench      = load_bench(bench_file, coarse, fine)
+    bench_dist = load(bench_file; nested = true)
+    bench      = bench_dist["$coarse"]["$fine"]
     sol        = bench.value[1]
     pos        = sol.positionSequence
     vel        = sol.velocitySequence
@@ -64,11 +66,11 @@ function plot_energy_time(bench_file :: String, coarse :: Int, fine :: Int; draw
         data / INITIALENERGY;
         xticks = 0:10,
         labels = labels,
-        xlabel = L"t/T", 
+        xlabel = L"t/T",
         ylabel = L"E/E_0",
         style  = style,
         linewidth = 2,
-        size = (h -> (MathConstants.golden * h, h))(400) # (733, 567) # <-- aspect ratio of Letter paper 
+        size = (h -> (MathConstants.golden * h, h))(400) # (733, 567) # <-- aspect ratio of Letter paper
     )
     return plt
 end
@@ -91,18 +93,31 @@ function get_errors(bench_dict :: Dict; initial_energy = INITIALENERGY) :: Tuple
 end
 
 """
-    plot_error_disc(bench_dict :: Dict; initial_energy = INITIALENERGY)
+    get_errors(disc_bench_dict_vec :: Vector{Dict}; initial_energy = INITIALENERGY) :: Tuple{Matrix, Matrix}
 
-TBW
+Get the discretization and error for a given set of benchmarks.
 """
-function plot_error_disc(bench_dict :: Dict; initial_energy = INITIALENERGY)
-    disc_vec, err_vec = get_errors(bench_dict; initial_energy = initial_energy)
+function get_errors(disc_bench_dict_vec :: Vector{Dict}; initial_energy = INITIALENERGY) :: Tuple{Matrix{Int}, Matrix{Float64}}
+    stuff #= :: Vector{Tuple{Vector, Vector}} =# = get_errors.(disc_bench_dict_vec; initial_energy = initial_energy)
+    disc_mat = Base.Fix2(getindex, 1).(stuff) |> stack
+    err_mat  = Base.Fix2(getindex, 2).(stuff) |> stack
+    return disc_mat, err_mat
+end
+
+# TODO: redo plotting below to use dictslice from benchmarks/src/dictslice.jl
+
+"""
+    plot_error_disc(bench_dict :: Union{Dict, Vector{Dict}}; initial_energy = INITIALENERGY)
+
+Plot the error versus discretization for the given dictionary or collection of dictionaries.
+"""
+function plot_error_disc(bench_dict :: Union{Dict, Vector{Dict}}; initial_energy = INITIALENERGY)
+    disc, err = get_errors(bench_dict; initial_energy = initial_energy)
     plt = plot(
-        disc_vec,
-        err_vec,
-        xticks = disc_vec,
+        disc,
+        err,
+        xticks = disc,
         xscale = :log2,
-        xlabel = L"N_\mathcal{F}",
         ylabel = L"(E - E_0) / E_0",
         labels = false
     )
@@ -112,22 +127,31 @@ end
 """
     plot_error_disc(bench_file :: String, coarse :: Int, fine :: Colon; initial_energy = INITIALENERGY)
 
-TBW
+Plot the error versus the fine discretization for a given coarse discretization
 """
 function plot_error_disc(bench_file :: String, coarse :: Int, fine :: Colon; initial_energy = INITIALENERGY)
-    fine_bench_dict = load(bench_file; nested = true)["$coarse"]
+    fine_bench_dict = load(bench_file; nested = true)["$coarse"] # TODO: replace with dictslice
     plt = plot_error_disc(fine_bench_dict; initial_energy = initial_energy)
+    plot!(plt, xlabel = L"N_\mathcal{F}")
     return plt
 end
 
-function plot_error_disc(bench_file :: String, coarse :: Colon, fine :: Int)
-    
+"""
+    plot_error_disc(bench_file :: String, coarse :: Colon, fine :: Int)
+
+Plot the error versus the coarse discretization for a given fine discretization.
+"""
+function plot_error_disc(bench_file :: String, coarse :: Colon, fine :: Int; initial_energy = INITIALENERGY)
+    coarse_bench_dict = dictslice(bench_file, fine)
+    plt = plot_error_disc(coarse_bench_dict; initial_energy = initial_energy)
+    plot!(plt, xlabel = L"N_\mathcal{C}")
+    return plt
 end
 
 """
     plot_error_disc(bench_file :: String, coarse_vec :: Vector{Int}, fine :: Colon; initial_energy = INITIALENERGY)
 
-TBW
+Plot error versus fine discretization for multiple coarse discretizations.
 """
 function plot_error_disc(bench_file :: String, coarse_vec :: Vector{Int}, fine :: Colon; initial_energy = INITIALENERGY)
     all_benches         = load(bench_file; nested = true)
@@ -136,7 +160,7 @@ function plot_error_disc(bench_file :: String, coarse_vec :: Vector{Int}, fine :
     disc_mat            = first.(disc_err_tup_vec) |> stack
     err_mat             = Base.Fix2(getindex, 2).(disc_err_tup_vec) |> stack
     plt                 = plot(
-        disc_mat, 
+        disc_mat,
         err_mat,
         xticks = disc_mat[:, 1],
         xscale = :log2,
@@ -147,6 +171,23 @@ function plot_error_disc(bench_file :: String, coarse_vec :: Vector{Int}, fine :
     return plt
 end
 
+"""
+    plot_error_disc(bench_file :: String, coarse :: Colon, fine_vec :: Vector{Int}; initial_energy = INITIALENERGY)
+
+Plot error versus coarse discretization for multiple fine discretizations.
+"""
+function plot_error_disc(bench_file :: String, coarse :: Colon, fine_vec :: Vector{Int}; initial_energy = INITIALENERGY)
+    fine_slice_vec = dictslice(bench_file, fine_vec)
+    plt = plot_error_disc(fine_slice_vec)
+    plot!(plt, xlabel = L"N_\mathcal{C}")
+    return plt
+end
+
+"""
+    plot_error_finedisc(bench_file :: String; initial_energy = INITIALENERGY)
+
+Plot error versus fine discretization for all coarse discretizations in the given benchmark file.
+"""
 function plot_error_finedisc(bench_file :: String; initial_energy = INITIALENERGY)
     coarse_bench_dict   = load(bench_file; nested = true)
     coarse_disc_vec     = keys(coarse_bench_dict)   |> collect .|> Base.Fix1(parse, Int)
@@ -159,7 +200,7 @@ function plot_error_finedisc(bench_file :: String; initial_energy = INITIALENERG
     disc_mat            = first.(disc_err_tup_vec) |> stack
     err_mat             = Base.Fix2(getindex, 2).(disc_err_tup_vec) |> stack
     plt                 = plot(
-        disc_mat, 
+        disc_mat,
         err_mat,
         xticks = disc_mat[:, 1],
         xscale = :log2,
@@ -170,4 +211,9 @@ function plot_error_finedisc(bench_file :: String; initial_energy = INITIALENERG
     return plt
 end
 
+"""
+    plot_error_disc(bench_file :: String, coarse :: Colon, fine :: Colon)
+
+Plot error versus fine discretization for all coarse discretizations in the given benchmark file.
+"""
 plot_error_disc(bench_file :: String, coarse :: Colon, fine :: Colon) = plot_error_finedisc(bench_file)
