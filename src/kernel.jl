@@ -66,7 +66,7 @@ function propagate_gpu!(
         problemCount :: Int,
         dimension    :: Int,
         t_max        :: Int,
-        step         :: Float32,
+        step         :: AbstractFloat,
         pos_seqs_dev,
         vel_seqs_dev
     ) :: Nothing

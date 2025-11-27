@@ -88,7 +88,7 @@ end
 
 function bench_all_gpu(coarse_fine_matrix :: Matrix{Tuple{Int, Int}}, params) :: Nothing
 
-    bench_file_name = DATADIR * "bench_gpu.jld2"
+    bench_file_name = DATADIR * "bench_gpu_64bit.jld2"
     bench_file      = jldopen(bench_file_name, "w")
     for index in eachindex(coarse_fine_matrix)
 
@@ -162,8 +162,8 @@ function bench_all_distributed(coarse_vector :: Vector{Int}, fine_vector :: Vect
 end
 
 function main(params) :: Nothing
-    coarse_vector      = 3:14 |> collect
-    fine_vector        = 3:14 |> collect
+    coarse_vector      = 14:14 |> collect
+    fine_vector        = 14:14 |> collect
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
     save_object(DATADIR * "disc_matrix.jld2", coarse_fine_matrix)
@@ -185,22 +185,22 @@ end
     const NODEVECTOR           = String["Electromagnetism"]
     const COARSEINTEGRATOR     = symplecticEuler
     const FINEINTEGRATOR       = velocityVerlet
-    const WAVENUMBER           = 1.0f0 # * pi # DO NO CHANGE
+    const WAVENUMBER           = 1.0 # * pi # DO NO CHANGE
     # ACCELERATION(r, v)         = -WAVENUMBER^2 * r         # simple harmonic oscillator
-    const DOMAINLOWERBOUND     = 0.0f0
+    const DOMAINLOWERBOUND     = 0.0
     const DOMAINUPPERBOUNDFACTOR = 10
-    const DOMAINUPPERBOUND     = DOMAINUPPERBOUNDFACTOR * 2.0f0 * pi
-    const INITIALPOSITION      = Float32[0.]
-    const INITIALVELOCITY      = Float32[1.]
+    const DOMAINUPPERBOUND     = DOMAINUPPERBOUNDFACTOR * 2.0 * pi
+    const INITIALPOSITION      = Float64[0.]
+    const INITIALVELOCITY      = Float64[1.]
 
-    # main((
-    #     NODEVECTOR = NODEVECTOR, 
-    #     COARSEINTEGRATOR = COARSEINTEGRATOR, 
-    #     FINEINTEGRATOR = FINEINTEGRATOR, 
-    #     WAVENUMBER = WAVENUMBER, 
-    #     DOMAINLOWERBOUND = DOMAINLOWERBOUND, 
-    #     DOMAINUPPERBOUND = DOMAINUPPERBOUND,
-    #     INITIALPOSITION = INITIALPOSITION,
-    #     INITIALVELOCITY = INITIALVELOCITY
-    # ))
+    main((
+        NODEVECTOR = NODEVECTOR, 
+        COARSEINTEGRATOR = COARSEINTEGRATOR, 
+        FINEINTEGRATOR = FINEINTEGRATOR, 
+        WAVENUMBER = WAVENUMBER, 
+        DOMAINLOWERBOUND = DOMAINLOWERBOUND, 
+        DOMAINUPPERBOUND = DOMAINUPPERBOUND,
+        INITIALPOSITION = INITIALPOSITION,
+        INITIALVELOCITY = INITIALVELOCITY
+    ))
 # end

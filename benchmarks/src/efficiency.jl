@@ -248,34 +248,34 @@ function plot_position()
     )
 end
 
-# function main()
-#     coarse_vector = 3:14 |> collect
-#     fine_vector   = 3:14 |> collect
-#     eff_matrix = calculate_efficiency(coarse_vector, fine_vector)
-#     plot_eff(coarse_vector, fine_vector, eff_matrix)
-# end
+function main()
+    coarse_vector = 14:14 |> collect
+    fine_vector   = 14:14 |> collect
+    eff_matrix = calculate_efficiency(coarse_vector, fine_vector)
+    plot_eff(coarse_vector, fine_vector, eff_matrix)
+end
 
-const DATADIR = dirname(@__DIR__) * "/data/"
-const GRAVITY              = 9.81
-const RODLENGTH            = GRAVITY
-const PERIOD               = sqrt(RODLENGTH / GRAVITY)
-const INITIALPOSITION      = Float32[0.]
-const INITIALVELOCITY      = Float32[1.]
+# const DATADIR = dirname(@__DIR__) * "/data/"
+# const GRAVITY              = 9.81
+# const RODLENGTH            = GRAVITY
+# const PERIOD               = sqrt(RODLENGTH / GRAVITY)
+# const INITIALPOSITION      = Float32[0.]
+# const INITIALVELOCITY      = Float32[1.]
 
 # the  true energy is equal to initial energy, because it doesn't change
 # in this case the initial energy is just the kinetic energy because the bob is at the bottom
 # energy in terms of mass, will get canceled when comparing to simulated
 # and I don't want to write the potential energy
-const init_pot_energy = GRAVITY * RODLENGTH * (1 - cos(sum(abs2, INITIALPOSITION)))
-const init_kin_energy = 0.5 * sum(abs2, INITIALVELOCITY)
-const TRUE_ENERGY     = init_kin_energy + init_pot_energy
+# const init_pot_energy = GRAVITY * RODLENGTH * (1 - cos(sum(abs2, INITIALPOSITION)))
+# const init_kin_energy = 0.5 * sum(abs2, INITIALVELOCITY)
+# const TRUE_ENERGY     = init_kin_energy + init_pot_energy
 
-# main()
-coarse_vector = 3:14 |> collect
-fine_vector   = 3:14 |> collect
-single_bench  = load(DATADIR * "bench_single.jld2")
-gpu_bench     = load(DATADIR * "bench_gpu.jld2"; nested = true)
-dist_bench    = load(DATADIR * "bench_dist.jld2"; nested = true)
+main()
+# coarse_vector = 3:14 |> collect
+# fine_vector   = 3:14 |> collect
+# single_bench  = load(DATADIR * "bench_single.jld2")
+# gpu_bench     = load(DATADIR * "bench_gpu.jld2"; nested = true)
+# dist_bench    = load(DATADIR * "bench_dist.jld2"; nested = true)
 # eff_matrix    = calculate_efficiency(coarse_vector, fine_vector, dist_bench)
 # zeroed_em = map(x -> isapprox(x, 0.0; atol = 10^-10) ? NaN : x, eff_matrix)
 # abs_zem = abs.(zeroed_em)
