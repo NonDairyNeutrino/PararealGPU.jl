@@ -20,6 +20,7 @@ end
 Calculate the potential energy of the final state of the pendulum.
 """
 function calculate_potential_energy(solution; mass = 1, gravity = 1, rod_length = 1) :: Float64
+    @info "Solution" solution
     final_angle      = solution.positionSequence |> last
     potential_energy = calculate_potential_energy(final_angle; mass = mass, gravity = gravity, rod_length = rod_length)
     return potential_energy
@@ -64,18 +65,19 @@ end
 Calculate the total mechanical energy of the final state of the pendulum.
 """
 function calculate_mechanical_energy(solution; mass = 1, gravity = 1, rod_length = 1) :: Float64
-    pe = calculate_potential_energy(solution; mass = mass, gravity = gravity, rod_length = rod_length)
-    ke = calculate_kinetic_energy(solution; mass = mass)
-    me = ke + pe # mechanical energy
-
-    #= 
-    an alternative implementation could be
-
-    final_position = solution.positionSequence |> last
-    final_velocity = solution.velocitySequence |> last
-    me = calculate_mechanical_energy(final_position, final_velocity; kwargs...)
-    =#
-
+    # sometimes loading to solution is loaded incorrectly so the domain, positions, and velocities
+    # are all smushed into the "domain" field as a vector.
+    # if accessing them correctly results in an error, assume the above and try again
+    me = 0
+    try
+        final_position = solution.positionSequence |> last
+        final_velocity = solution.velocitySequence |> last
+        me = calculate_mechanical_energy(final_position, final_velocity; mass = mass, gravity = gravity, rod_length = rod_length)
+    catch e
+        final_position = solution.domain[2] |> last
+        final_velocity = solution.domain[3] |> last
+        me = calculate_mechanical_energy(final_position, final_velocity; mass = mass, gravity = gravity, rod_length = rod_length)
+    end
     return me
 end
 

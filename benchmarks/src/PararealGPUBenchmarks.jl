@@ -3,7 +3,8 @@
 
 using BenchmarkTools, DelimitedFiles, Distributed, JLD2
 const proj_dir = "../../"
-include("$proj_dir/src/PararealGPU.jl"); using .PararealGPU
+# include("$proj_dir/src/PararealGPU.jl"); 
+using PararealGPU
 
 const DATADIR = dirname(@__DIR__) * "/data/"
 
@@ -136,7 +137,7 @@ function bench_all_distributed(coarse_vector :: Vector{Int}, fine_vector :: Vect
     )
 
     for coarse in coarse_vector
-        bench_file_coarse = jldopen(DATADIR * "bench_dist_c$coarse.jld2", "w")
+        bench_file_coarse = jldopen(DATADIR * "bench_dist_c$coarse_64bit.jld2", "w")
         for fine in fine_vector
             println("Beginning distributed benchmark with coarse = $coarse, fine = $fine")
 
@@ -161,9 +162,7 @@ function bench_all_distributed(coarse_vector :: Vector{Int}, fine_vector :: Vect
     return nothing
 end
 
-function main(params) :: Nothing
-    coarse_vector      = 14:14 |> collect
-    fine_vector        = 14:14 |> collect
+function main(coarse_vector, fine_vector, params) :: Nothing
     coarse_fine_matrix = Iterators.product(coarse_vector, fine_vector) |> collect
 
     save_object(DATADIR * "disc_matrix.jld2", coarse_fine_matrix)
@@ -193,7 +192,9 @@ end
     const INITIALPOSITION      = Float64[0.]
     const INITIALVELOCITY      = Float64[1.]
 
-    main((
+    coarse_vector              = 5:14 |> collect
+    fine_vector                = 5:14 |> collect
+    const params               = (
         NODEVECTOR = NODEVECTOR, 
         COARSEINTEGRATOR = COARSEINTEGRATOR, 
         FINEINTEGRATOR = FINEINTEGRATOR, 
@@ -202,5 +203,6 @@ end
         DOMAINUPPERBOUND = DOMAINUPPERBOUND,
         INITIALPOSITION = INITIALPOSITION,
         INITIALVELOCITY = INITIALVELOCITY
-    ))
+    )
+    main(coarse_vector, fine_vector, params)
 # end

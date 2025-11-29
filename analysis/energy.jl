@@ -6,10 +6,10 @@
 
 using Plots: plot, plot!, savefig
 using LaTeXStrings, JLD2
-include("$(pwd())/src/PararealGPU.jl")
-using .PararealGPU
+# include("$(pwd())/src/PararealGPU.jl")
+using PararealGPU
 include("analysis.jl")
-include(joinpath(pwd(), "benchmarks", "src", "dictslice.jl"))
+include(joinpath("..", "benchmarks", "src", "dictslice.jl"))
 
 # DEFINE MODEL PARAMETERS
 # the frequency (spatial or temporal) constrains the potential values for the length of the rod
